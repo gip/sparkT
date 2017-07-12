@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing -fno-warn-unused-binds #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Database.Beam.Query.SQL92
     ( buildSql92Query' ) where

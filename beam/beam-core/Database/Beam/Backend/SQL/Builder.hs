@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | Provides a syntax 'SqlSyntaxBuilder' that uses a
 --   'Data.ByteString.Builder.Builder' to construct SQL expressions as strings.
