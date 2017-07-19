@@ -348,6 +348,7 @@ instance IsSql92OrderingSyntax SqlSyntaxBuilder where
 
 instance IsSql92TableSourceSyntax SqlSyntaxBuilder where
   type Sql92TableSourceSelectSyntax SqlSyntaxBuilder = SqlSyntaxBuilder
+  type Sql92TableSourceInfo SqlSyntaxBuilder = ()
   tableNamed _ t _ = SqlSyntaxBuilder (quoteSql t)
   tableFromSubSelect query = SqlSyntaxBuilder (byteString "(" <> buildSql query <> byteString ")")
 

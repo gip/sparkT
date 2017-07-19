@@ -49,6 +49,7 @@ allOf_
    , IsSql92SelectSyntax select
    , IsSql92ExpressionSyntax expr
    , HasQBuilder select
+   , InstanceInfo db ~ Sql92TableSourceInfo (Sql92FromTableSourceSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax select)))
    , Sql92ExpressionSelectSyntax expr ~ select )
   => Q select db (QNested s) r
   -> QQuantified expr s (WithRewrittenThread (QNested s) s r)
@@ -63,6 +64,7 @@ anyOf_
    , ProjectibleInSelectSyntax select r
    , IsSql92SelectSyntax select
    , IsSql92ExpressionSyntax expr
+   , InstanceInfo db ~ Sql92TableSourceInfo (Sql92FromTableSourceSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax select)))
    , HasQBuilder select
    , Sql92ExpressionSelectSyntax expr ~ select )
   => Q select db (QNested s) r

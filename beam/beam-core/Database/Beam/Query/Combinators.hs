@@ -100,11 +100,12 @@ tAll_ :: forall be (db :: (* -> *) -> *) table select s.
         , Sql92FromExpressionSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax select)) ~ Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)
 
         , Table table )
-       => (DatabaseSettings be db -> DatabaseEntity be db (TableEntity table))
+       => InstanceVersioned db
+       -> (DatabaseSettings be db -> DatabaseEntity be db (TableEntity table))
        -> DatabaseSettings be db
        -> Q select db s (table (QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s))
-tAll_ toTblEntity dbSettings =
-   Q $ liftF (QAll (Just dbSettings) tblNm tblSettings (\_ -> Nothing) id)
+tAll_ versioned toTblEntity dbSettings =
+   Q $ liftF (QAll (Just $ instanceInfo (dbSettings, versioned)) tblNm tblSettings (\_ -> Nothing) id)
    where DatabaseEntity (DatabaseTable tblNm (tblSettings :: TableSettings table)) = toTblEntity dbSettings
 
 -- | Introduce all entries of a view into the 'Q' monad
@@ -270,6 +271,7 @@ exists_ :: ( Database db
            , IsSql92SelectSyntax select
            , HasQBuilder select
            , ProjectibleInSelectSyntax select a
+           , InstanceInfo db ~ Sql92TableSourceInfo(Sql92FromTableSourceSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax select)))
            , Sql92ExpressionSelectSyntax (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) ~ select)
         => Q select db s a
         -> QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s Bool
@@ -280,6 +282,7 @@ unique_ :: ( Database db
            , IsSql92SelectSyntax select
            , HasQBuilder select
            , ProjectibleInSelectSyntax select a
+           , InstanceInfo db ~ Sql92TableSourceInfo(Sql92FromTableSourceSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax select)))
            , Sql92ExpressionSelectSyntax (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) ~ select)
         => Q select db s a
         -> QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s Bool
@@ -290,6 +293,7 @@ distinct_ :: ( Database db
              , IsSql99ExpressionSyntax (Sql92SelectExpressionSyntax select)
              , HasQBuilder select
              , ProjectibleInSelectSyntax select a
+             , InstanceInfo db ~ Sql92TableSourceInfo(Sql92FromTableSourceSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax select)))
              , Sql92ExpressionSelectSyntax (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) ~ select) =>
              Q select db s a
           -> QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s Bool
@@ -301,6 +305,7 @@ subquery_ ::
   , IsSql92SelectSyntax select
   , HasQBuilder select
   , ProjectibleInSelectSyntax select (QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s a)
+  , InstanceInfo db ~ Sql92TableSourceInfo(Sql92FromTableSourceSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax select)))
   , Sql92ExpressionSelectSyntax (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) ~ select) =>
   Q select (db :: (* -> *) -> *) s (QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s a)
   -> QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s a

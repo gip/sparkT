@@ -49,8 +49,7 @@ module Database.Beam.Schema.Tables
     , allBeamValues, changeBeamRep
 
     -- * Instances
-    , instanceType, instanceURL, InstanceTypeType
-    , InstanceVersioned )
+    , InstanceVersioned, InstanceInfo, instanceInfo )
     where
 
 import           Database.Beam.Backend.Types
@@ -66,6 +65,7 @@ import           Data.String (IsString(..))
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Typeable
+import           Data.Time (UTCTime, LocalTime)
 
 import qualified GHC.Generics as Generic
 import           GHC.Generics hiding (R, C)
@@ -120,14 +120,11 @@ class Database db where
     default dbSchema :: forall be. ( Generic (DatabaseSettings be db),
                           GDbSchema (Rep (DatabaseSettings be db) ()) ) => DatabaseSettings be db -> DatabaseSchema
     dbSchema _ = gDbSchema (Proxy :: Proxy (Rep (DatabaseSettings be db) ()))
-    -- Database instance type
-    type InstanceTypeType db :: *
-    instanceType :: InstanceTypeType db
-    -- Virtually all databases will support an URL as a way to specify how to access the data
-    instanceURL :: String
-    -- Parameters for that instance
-    type InstanceVersioned db :: *
 
+    -- Versioning for that instance
+    type InstanceVersioned db :: *
+    type InstanceInfo db :: *
+    instanceInfo :: (DatabaseSettings be db, InstanceVersioned db) -> InstanceInfo db
 
 -- Quick hack to generate a schema
 type DatabaseSchema = (String,[(String, [(String, TypeRep)])])
@@ -533,6 +530,11 @@ instance (GSchema (a ()), GSchema (b ())) => GSchema ((a :*: b) ()) where
   gTblSchema _ = gTblSchema (Proxy :: Proxy (a ())) ++ gTblSchema (Proxy :: Proxy (b ()))
 instance (Selector s, Typeable t) => GSchema (M1 S s (K1 Generic.R (TableField table t)) p) where
   gTblSchema _ = [ ( selName (undefined :: M1 S s (K1 Generic.R (TableField table t)) ()) , typeOf (undefined :: t) ) ]
+-- TODO: refactor instances below
+instance (Selector s) => GSchema (M1 S s (K1 Generic.R (PrimaryKey someT (TableField table))) p) where
+  gTblSchema _ = error "SparkT does not allow cross-table declarations, use joins"
+instance (Selector s) => GSchema (M1 S s (K1 Generic.R (PrimaryKey someT (Nullable (TableField table)))) p) where
+  gTblSchema _ = error "SparkT does not allow cross-table declarations, use joins"
 
 tableValuesNeeded :: Beamable table => Proxy table -> Int
 tableValuesNeeded (Proxy :: Proxy table) = length (allBeamValues (const ()) (tblSkeleton :: TableSkeleton table))
@@ -803,23 +805,15 @@ instance TagReducesTo f f' => TagReducesTo (Nullable f) f' where
 
 class GTableSkeleton x where
     gTblSkeleton :: Proxy x -> x ()
-instance GTableSkeleton p => GTableSkeleton (M1 S f p) where
-    gTblSkeleton (_ :: Proxy (M1 S f p)) = M1 (gTblSkeleton (Proxy :: Proxy p))
-instance GTableSkeleton p => GTableSkeleton (M1 Generic.C f p) where
-    gTblSkeleton (_ :: Proxy (M1 Generic.C f p)) = M1 (gTblSkeleton (Proxy :: Proxy p))
-instance GTableSkeleton p => GTableSkeleton (M1 D f p) where
-    gTblSkeleton (_ :: Proxy (M1 D f p)) = M1 (gTblSkeleton (Proxy :: Proxy p))
+instance GTableSkeleton p => GTableSkeleton (M1 t f p) where
+    gTblSkeleton (_ :: Proxy (M1 t f p)) = M1 (gTblSkeleton (Proxy :: Proxy p))
 instance GTableSkeleton U1 where
     gTblSkeleton _ = U1
 instance (GTableSkeleton a, GTableSkeleton b) =>
     GTableSkeleton (a :*: b) where
         gTblSkeleton _ = gTblSkeleton (Proxy :: Proxy a) :*: gTblSkeleton (Proxy :: Proxy b)
-instance BasicType field => GTableSkeleton (K1 Generic.R (Ignored field)) where
+instance Field field => GTableSkeleton (K1 Generic.R (Ignored field)) where
     gTblSkeleton _ = K1 Ignored
--- instance GTableSkeleton (K1 Generic.R (Ignored Text)) where
---     gTblSkeleton _ = K1 Ignored
--- instance GTableSkeleton (K1 Generic.R (Ignored Double)) where
---     gTblSkeleton _ = K1 Ignored
 instance ( Generic (tbl Ignored)
          , GTableSkeleton (Rep (tbl Ignored)) ) =>
     GTableSkeleton (K1 Generic.R (tbl Ignored)) where
@@ -829,10 +823,15 @@ instance ( Generic (tbl (Nullable Ignored))
     GTableSkeleton (K1 Generic.R (tbl (Nullable Ignored))) where
     gTblSkeleton _ = K1 (to' (gTblSkeleton (Proxy :: Proxy (Rep (tbl (Nullable Ignored))))))
 
-class BasicType t
-instance BasicType Int
-instance BasicType Double
-instance BasicType Text
+class Field field
+instance Field field => Field (Maybe field)
+instance Field field => Field (Auto field)
+instance Field Int
+instance Field Text
+instance Field String
+instance Field Double
+instance Field UTCTime
+instance Field LocalTime
 
 -- * Internal functions
 

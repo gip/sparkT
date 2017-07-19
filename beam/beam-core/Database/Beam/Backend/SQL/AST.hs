@@ -338,6 +338,7 @@ data TableSource
 
 instance IsSql92TableSourceSyntax TableSource where
   type Sql92TableSourceSelectSyntax TableSource = Select
+  type Sql92TableSourceInfo TableSource = ()  
   tableNamed _ a _ = TableNamed a
   tableFromSubSelect = TableFromSubSelect
 

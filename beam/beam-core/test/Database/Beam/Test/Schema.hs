@@ -185,7 +185,9 @@ data EmployeeDb f
     , _roles       :: f (TableEntity RoleT)
     , _funny       :: f (TableEntity FunnyT) }
     deriving Generic
-instance Database EmployeeDb
+instance Database EmployeeDb where
+  type InstanceInfo EmployeeDb = ()
+  instanceInfo _ = ()
 
 employeeDbSettings :: DatabaseSettings be EmployeeDb
 employeeDbSettings = defaultDbSettings

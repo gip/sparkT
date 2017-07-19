@@ -95,6 +95,7 @@ select :: forall syntax db res.
           ( Database db
           , ProjectibleInSelectSyntax syntax res
           , IsSql92SelectSyntax syntax
+          , InstanceInfo db ~ Sql92TableSourceInfo(Sql92FromTableSourceSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax syntax)))
           , HasQBuilder syntax ) =>
           Q syntax db QueryInaccessible res -> SqlSelect syntax (QExprToIdentity res)
 select q =
@@ -109,7 +110,7 @@ lookup :: ( HasQBuilder syntax
           , HasSqlValueSyntax (Sql92ExpressionValueSyntax (Sql92SelectExpressionSyntax syntax)) Bool
 
           , Beamable table, Table table
-
+          , InstanceInfo db ~ Sql92TableSourceInfo(Sql92FromTableSourceSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax syntax)))
           , Database db )
        => DatabaseEntity be db (TableEntity table)
        -> PrimaryKey table Identity
@@ -137,8 +138,10 @@ runSelectReturningOne (SqlSelect s) =
 
 -- | Use a special debug syntax to print out an ANSI Standard @SELECT@ statement
 --   that may be generated for a given 'Q'.
-dumpSqlSelect :: (Database db, ProjectibleInSelectSyntax SqlSyntaxBuilder res) =>
-                 Q SqlSyntaxBuilder db QueryInaccessible res -> IO ()
+dumpSqlSelect :: ( Database db
+                 , ProjectibleInSelectSyntax SqlSyntaxBuilder res
+                 , InstanceInfo db ~ Sql92TableSourceInfo(Sql92FromTableSourceSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax SqlSyntaxBuilder)))
+                 ) => Q SqlSyntaxBuilder db QueryInaccessible res -> IO ()
 dumpSqlSelect q =
     let SqlSelect s = select q
     in putStrLn (renderSql s)

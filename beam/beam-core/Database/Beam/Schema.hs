@@ -39,8 +39,7 @@ module Database.Beam.Schema
     , modifyTable, fieldNamed
 
     -- * Instances
-    , instanceType, instanceURL, InstanceTypeType
-    , InstanceVersioned
+    , InstanceVersioned, InstanceInfo, instanceInfo
 
     -- * Types for lens generation
     , Lenses, LensFor(..)
