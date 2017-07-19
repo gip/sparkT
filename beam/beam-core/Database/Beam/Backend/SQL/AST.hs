@@ -77,7 +77,7 @@ data Insert
 instance IsSql92InsertSyntax Insert where
   type Sql92InsertValuesSyntax Insert = InsertValues
 
-  insertStmt = Insert
+  insertStmt _ a _ = Insert a
 
 data InsertValues
   = InsertValues
@@ -338,8 +338,7 @@ data TableSource
 
 instance IsSql92TableSourceSyntax TableSource where
   type Sql92TableSourceSelectSyntax TableSource = Select
-
-  tableNamed = TableNamed
+  tableNamed _ a _ = TableNamed a
   tableFromSubSelect = TableFromSubSelect
 
 data From

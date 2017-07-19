@@ -107,7 +107,7 @@ tableOp op all a b =
 instance IsSql92InsertSyntax SqlSyntaxBuilder where
   type Sql92InsertValuesSyntax SqlSyntaxBuilder = SqlSyntaxBuilder
 
-  insertStmt table fields values =
+  insertStmt _ table _ fields values =
     SqlSyntaxBuilder $
     byteString "INSERT INTO " <> quoteSql table <>
     byteString "(" <> buildSepBy (byteString ", ") (map quoteSql fields) <> byteString ") " <>
@@ -348,7 +348,7 @@ instance IsSql92OrderingSyntax SqlSyntaxBuilder where
 
 instance IsSql92TableSourceSyntax SqlSyntaxBuilder where
   type Sql92TableSourceSelectSyntax SqlSyntaxBuilder = SqlSyntaxBuilder
-  tableNamed t = SqlSyntaxBuilder (quoteSql t)
+  tableNamed _ t _ = SqlSyntaxBuilder (quoteSql t)
   tableFromSubSelect query = SqlSyntaxBuilder (byteString "(" <> buildSql query <> byteString ")")
 
 instance IsSql92FromSyntax SqlSyntaxBuilder where

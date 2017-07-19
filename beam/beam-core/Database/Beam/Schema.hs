@@ -12,6 +12,8 @@ module Database.Beam.Schema
 
     , DatabaseSettings
     , DatabaseEntity
+    , DatabaseSchema
+    , dbSchema
 
     -- ** #entities# Database entities
     -- $entities
@@ -33,7 +35,12 @@ module Database.Beam.Schema
     , DatabaseModification, EntityModification, FieldModification
     , withDbModification, withTableModification
     , dbModification, tableModification
+    , TableSchema
     , modifyTable, fieldNamed
+
+    -- * Instances
+    , instanceType, instanceURL, InstanceTypeType
+    , InstanceVersioned
 
     -- * Types for lens generation
     , Lenses, LensFor(..)

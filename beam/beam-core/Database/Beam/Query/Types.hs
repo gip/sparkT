@@ -34,7 +34,8 @@ type instance QExprToIdentity (a, b, c, d, e, f, g, h) =
   , QExprToIdentity g, QExprToIdentity h )
 
 class IsSql92SelectSyntax selectSyntax => HasQBuilder selectSyntax where
-  buildSqlQuery :: Projectible (Sql92SelectExpressionSyntax selectSyntax) a =>
+  buildSqlQuery :: (Projectible (Sql92SelectExpressionSyntax selectSyntax) a
+                   , Database db) =>
                    Q selectSyntax db s a -> selectSyntax
 instance HasQBuilder SqlSyntaxBuilder where
   buildSqlQuery = buildSql92Query' True

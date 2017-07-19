@@ -42,7 +42,7 @@ module Database.Beam.Query
 
     -- ** @INSERT@
     , SqlInsert(..)
-    , insert
+    , insert, tInsert
     , runInsert
 
     , SqlInsertValues(..)
@@ -92,7 +92,8 @@ newtype SqlSelect select a
 
 -- | Build a 'SqlSelect' for the given 'Q'.
 select :: forall syntax db res.
-          ( ProjectibleInSelectSyntax syntax res
+          ( Database db
+          , ProjectibleInSelectSyntax syntax res
           , IsSql92SelectSyntax syntax
           , HasQBuilder syntax ) =>
           Q syntax db QueryInaccessible res -> SqlSelect syntax (QExprToIdentity res)
@@ -136,7 +137,7 @@ runSelectReturningOne (SqlSelect s) =
 
 -- | Use a special debug syntax to print out an ANSI Standard @SELECT@ statement
 --   that may be generated for a given 'Q'.
-dumpSqlSelect :: ProjectibleInSelectSyntax SqlSyntaxBuilder res =>
+dumpSqlSelect :: (Database db, ProjectibleInSelectSyntax SqlSyntaxBuilder res) =>
                  Q SqlSyntaxBuilder db QueryInaccessible res -> IO ()
 dumpSqlSelect q =
     let SqlSelect s = select q
@@ -155,9 +156,23 @@ insert :: IsSql92InsertSyntax syntax =>
           -- ^ Values to insert. See 'insertValues', 'insertExpressions', and 'insertFrom' for possibilities.
        -> SqlInsert syntax
 insert (DatabaseEntity (DatabaseTable tblNm tblSettings)) (SqlInsertValues vs) =
-    SqlInsert (insertStmt tblNm tblFields vs)
+    SqlInsert (insertStmt Nothing tblNm (tblSchema tblSettings) tblFields vs)
   where
     tblFields = allBeamValues (\(Columnar' f) -> _fieldName f) tblSettings
+
+-- Gilles
+tInsert :: forall table be db syntax. (Beamable table, IsSql92InsertSyntax syntax, Database db) =>
+         (DatabaseSettings be db -> DatabaseEntity be db (TableEntity table))
+       -> DatabaseSettings be db
+          -- ^ Table to insert into
+       -> SqlInsertValues (Sql92InsertValuesSyntax syntax) table
+          -- ^ Values to insert. See 'insertValues', 'insertExpressions', and 'insertFrom' for possibilities.
+       -> SqlInsert syntax
+tInsert toTblEntity dbSettings (SqlInsertValues vs) =
+    SqlInsert (insertStmt (Just $ dbSchema dbSettings) tblNm (tblSchema tblSettings) tblFields vs)
+  where
+    tblFields = allBeamValues (\(Columnar' f) -> _fieldName f) tblSettings
+    DatabaseEntity (DatabaseTable tblNm (tblSettings :: TableSettings table)) = toTblEntity dbSettings
 
 -- | Run a 'SqlInsert' in a 'MonadBeam'
 runInsert :: (IsSql92Syntax cmd, MonadBeam cmd be hdl m)

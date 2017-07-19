@@ -43,7 +43,8 @@ data QQuantified expr s r
 --   <#quantified-comparison-operator quantified comparison operator>
 allOf_
   :: forall s r select expr db.
-   ( ThreadRewritable (QNested s) r
+   ( Database db
+   , ThreadRewritable (QNested s) r
    , ProjectibleInSelectSyntax select r
    , IsSql92SelectSyntax select
    , IsSql92ExpressionSyntax expr
@@ -57,7 +58,8 @@ allOf_ s = QQuantified quantifyOverAll (subqueryE (buildSqlQuery s))
 --   <#quantified-comparison-operator quantified comparison operator>
 anyOf_
   :: forall s r select expr db.
-   ( ThreadRewritable (QNested s) r
+   ( Database db
+   , ThreadRewritable (QNested s) r
    , ProjectibleInSelectSyntax select r
    , IsSql92SelectSyntax select
    , IsSql92ExpressionSyntax expr

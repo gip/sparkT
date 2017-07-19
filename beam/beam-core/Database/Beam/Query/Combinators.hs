@@ -18,7 +18,7 @@ module Database.Beam.Query.Combinators
 
     -- * General query combinators
 
-    , all_
+    , all_, tAll_
     , allFromView_, join_, guard_, filter_
     , related_, relatedBy_
     , leftJoin_, perhaps_
@@ -89,7 +89,23 @@ all_ :: forall be (db :: (* -> *) -> *) table select s.
        => DatabaseEntity be db (TableEntity table)
        -> Q select db s (table (QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s))
 all_ (DatabaseEntity (DatabaseTable tblNm tblSettings)) =
-    Q $ liftF (QAll tblNm tblSettings (\_ -> Nothing) id)
+    Q $ liftF (QAll Nothing tblNm tblSettings (\_ -> Nothing) id)
+
+tAll_ :: forall be (db :: (* -> *) -> *) table select s.
+        ( Database db
+        , IsSql92SelectSyntax select
+
+        , IsSql92FromSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax select))
+        , IsSql92TableSourceSyntax (Sql92FromTableSourceSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax select)))
+        , Sql92FromExpressionSyntax (Sql92SelectTableFromSyntax (Sql92SelectSelectTableSyntax select)) ~ Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)
+
+        , Table table )
+       => (DatabaseSettings be db -> DatabaseEntity be db (TableEntity table))
+       -> DatabaseSettings be db
+       -> Q select db s (table (QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s))
+tAll_ toTblEntity dbSettings =
+   Q $ liftF (QAll (Just dbSettings) tblNm tblSettings (\_ -> Nothing) id)
+   where DatabaseEntity (DatabaseTable tblNm (tblSettings :: TableSettings table)) = toTblEntity dbSettings
 
 -- | Introduce all entries of a view into the 'Q' monad
 allFromView_ :: forall be (db :: (* -> *) -> *) table select s.
@@ -103,7 +119,7 @@ allFromView_ :: forall be (db :: (* -> *) -> *) table select s.
                => DatabaseEntity be db (ViewEntity table)
                -> Q select db s (table (QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s))
 allFromView_ (DatabaseEntity (DatabaseView tblNm tblSettings)) =
-    Q $ liftF (QAll tblNm tblSettings (\_ -> Nothing) id)
+    Q $ liftF (QAll Nothing tblNm tblSettings (\_ -> Nothing) id)
 
 -- | Introduce all entries of a table into the 'Q' monad based on the given
 --   QExpr
@@ -116,7 +132,7 @@ join_ :: ( Database db, Table table
       -> (table (QExpr (Sql92SelectExpressionSyntax select) s) -> QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s Bool)
       -> Q select db s (table (QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s))
 join_ (DatabaseEntity (DatabaseTable tblNm tblSettings)) mkOn =
-    Q $ liftF (QAll tblNm tblSettings (\tbl -> let QExpr on = mkOn tbl in Just on) id)
+    Q $ liftF (QAll Nothing tblNm tblSettings (\tbl -> let QExpr on = mkOn tbl in Just on) id)
 
 -- | Introduce a table using a left join with no ON clause. Because this is not
 --   an inner join, the resulting table is made nullable. This means that each
@@ -250,7 +266,8 @@ offset_ offset' (Q q) =
   Q (liftF (QOffset offset' q (rewriteThread (Proxy @s))))
 
 -- | Use the SQL @EXISTS@ operator to determine if the given query returns any results
-exists_ :: ( IsSql92SelectSyntax select
+exists_ :: ( Database db
+           , IsSql92SelectSyntax select
            , HasQBuilder select
            , ProjectibleInSelectSyntax select a
            , Sql92ExpressionSelectSyntax (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) ~ select)
@@ -259,7 +276,8 @@ exists_ :: ( IsSql92SelectSyntax select
 exists_ = QExpr . existsE . buildSqlQuery
 
 -- | Use the SQL @UNIQUE@ operator to determine if the given query produces a unique result
-unique_ :: ( IsSql92SelectSyntax select
+unique_ :: ( Database db
+           , IsSql92SelectSyntax select
            , HasQBuilder select
            , ProjectibleInSelectSyntax select a
            , Sql92ExpressionSelectSyntax (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) ~ select)
@@ -268,7 +286,8 @@ unique_ :: ( IsSql92SelectSyntax select
 unique_ = QExpr . uniqueE . buildSqlQuery
 
 -- | Use the SQL99 @DISTINCT@ operator to determine if the given query produces a distinct result
-distinct_ :: ( IsSql99ExpressionSyntax (Sql92SelectExpressionSyntax select)
+distinct_ :: ( Database db
+             , IsSql99ExpressionSyntax (Sql92SelectExpressionSyntax select)
              , HasQBuilder select
              , ProjectibleInSelectSyntax select a
              , Sql92ExpressionSelectSyntax (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) ~ select) =>
@@ -278,7 +297,8 @@ distinct_ = QExpr . distinctE . buildSqlQuery
 
 -- | Project the (presumably) singular result of the given query as an expression
 subquery_ ::
-  ( IsSql92SelectSyntax select
+  ( Database db
+  , IsSql92SelectSyntax select
   , HasQBuilder select
   , ProjectibleInSelectSyntax select (QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s a)
   , Sql92ExpressionSelectSyntax (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) ~ select) =>

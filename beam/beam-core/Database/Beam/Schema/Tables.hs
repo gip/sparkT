@@ -6,6 +6,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Defines a generic schema type that can be used to define schemas for Beam tables
 module Database.Beam.Schema.Tables
@@ -15,6 +16,7 @@ module Database.Beam.Schema.Tables
     , zipTables
 
     , DatabaseSettings
+    , DatabaseSchema
     , IsDatabaseEntity(..)
     , DatabaseEntityDescriptor(..)
     , DatabaseEntity(..), TableEntity, ViewEntity, DomainTypeEntity
@@ -23,7 +25,7 @@ module Database.Beam.Schema.Tables
     , FieldModification(..)
     , dbModification, tableModification, withDbModification
     , withTableModification, modifyTable, fieldNamed
-    , defaultDbSettings
+    , defaultDbSettings, dbSchema
 
     , Lenses, LensFor(..)
 
@@ -40,10 +42,15 @@ module Database.Beam.Schema.Tables
     -- * Tables
     , Table(..), Beamable(..)
     , Retaggable(..)
+    , TableSchema
     , defTblFieldSettings
     , tableValuesNeeded
     , pk
-    , allBeamValues, changeBeamRep )
+    , allBeamValues, changeBeamRep
+
+    -- * Instances
+    , instanceType, instanceURL, InstanceTypeType
+    , InstanceVersioned )
     where
 
 import           Database.Beam.Backend.Types
@@ -78,7 +85,6 @@ import qualified Lens.Micro as Lens
 --   section](Database.Beam.Schema#entities) and in the
 --   [manual](http://tathougies.github.io/beam/user-guide/databases/)
 class Database db where
-
     -- | Default derived function. Do not implement this yourself.
     --
     --   The idea is that, for any two databases over particular entity tags 'f'
@@ -109,6 +115,37 @@ class Database db where
         -- For GHC 8.0.1 renamer bug
         refl :: (Proxy h -> m (db h)) -> m (db h)
         refl fn = fn Proxy
+
+    dbSchema :: DatabaseSettings be db -> DatabaseSchema
+    default dbSchema :: forall be. ( Generic (DatabaseSettings be db),
+                          GDbSchema (Rep (DatabaseSettings be db) ()) ) => DatabaseSettings be db -> DatabaseSchema
+    dbSchema _ = gDbSchema (Proxy :: Proxy (Rep (DatabaseSettings be db) ()))
+    -- Database instance type
+    type InstanceTypeType db :: *
+    instanceType :: InstanceTypeType db
+    -- Virtually all databases will support an URL as a way to specify how to access the data
+    instanceURL :: String
+    -- Parameters for that instance
+    type InstanceVersioned db :: *
+
+
+-- Quick hack to generate a schema
+type DatabaseSchema = (String,[(String, [(String, TypeRep)])])
+
+class GDbSchema x where
+  gDbSchema :: Proxy x -> (String,[(String, [(String, TypeRep)])])
+instance (GDbSchema' (f ()), Datatype c) => GDbSchema (D1 c f p) where
+  gDbSchema (_ :: Proxy (D1 c f p)) = (datatypeName (undefined :: D1 c f p), gDbSchema' (Proxy :: Proxy (f ())))
+class GDbSchema' x where
+  gDbSchema' :: Proxy x -> [(String, [(String, TypeRep)])]
+instance GDbSchema' (f ()) => GDbSchema' (C1 c f p) where
+  gDbSchema' (_ :: Proxy (C1 c f p)) = gDbSchema' (Proxy :: Proxy (f ()))
+instance (GDbSchema' (a ()), GDbSchema' (b ())) => GDbSchema' ((a :*: b) ()) where
+  gDbSchema' _ = gDbSchema' (Proxy :: Proxy (a ())) ++ gDbSchema' (Proxy :: Proxy (b ()))
+instance (Selector s, GSchema (Rep (TableSettings table) ())) => GDbSchema' (S1 s (Rec0 (DatabaseEntity be db (TableEntity table))) p) where
+  gDbSchema' _ = [(selName (undefined :: S1 s (Rec0 (DatabaseEntity be db (TableEntity table))) p),
+                   gTblSchema (Proxy :: Proxy (Rep (TableSettings table) ()))
+                  )]
 
 -- | Automatically provide names for tables, and descriptions for tables (using
 --   'defTblFieldSettings'). Your database must implement 'Generic', and must be
@@ -476,6 +513,27 @@ class Beamable table where
         where withProxy :: (Proxy (Rep (TableSkeleton table)) -> TableSkeleton table) -> TableSkeleton table
               withProxy f = f Proxy
 
+    tblSchema :: TableSettings table -> TableSchema
+    default tblSchema :: ( Generic (TableSettings table),
+                           GSchema (Rep (TableSettings table) ()) ) => TableSettings table -> TableSchema
+    tblSchema _ = gTblSchema (Proxy :: Proxy (Rep (TableSettings table) ()))
+
+-- Quick hack to generate a schema
+type TableSchema = [(String, TypeRep)]
+
+class GSchema x where
+  gTblSchema :: Proxy x -> TableSchema
+instance GSchema (f ()) => GSchema (M1 D c f p) where
+  gTblSchema (_ :: Proxy (M1 D c f p)) = gTblSchema (Proxy :: Proxy (f ()))
+instance GSchema (f ()) => GSchema (M1 Generic.C c f p) where
+  gTblSchema (_ :: Proxy (M1 Generic.C c f p)) = gTblSchema (Proxy :: Proxy (f ()))
+instance GSchema (U1 p) where
+  gTblSchema _ = []
+instance (GSchema (a ()), GSchema (b ())) => GSchema ((a :*: b) ()) where
+  gTblSchema _ = gTblSchema (Proxy :: Proxy (a ())) ++ gTblSchema (Proxy :: Proxy (b ()))
+instance (Selector s, Typeable t) => GSchema (M1 S s (K1 Generic.R (TableField table t)) p) where
+  gTblSchema _ = [ ( selName (undefined :: M1 S s (K1 Generic.R (TableField table t)) ()) , typeOf (undefined :: t) ) ]
+
 tableValuesNeeded :: Beamable table => Proxy table -> Int
 tableValuesNeeded (Proxy :: Proxy table) = length (allBeamValues (const ()) (tblSkeleton :: TableSkeleton table))
 
@@ -745,15 +803,23 @@ instance TagReducesTo f f' => TagReducesTo (Nullable f) f' where
 
 class GTableSkeleton x where
     gTblSkeleton :: Proxy x -> x ()
-instance GTableSkeleton p => GTableSkeleton (M1 t f p) where
-    gTblSkeleton (_ :: Proxy (M1 t f p)) = M1 (gTblSkeleton (Proxy :: Proxy p))
+instance GTableSkeleton p => GTableSkeleton (M1 S f p) where
+    gTblSkeleton (_ :: Proxy (M1 S f p)) = M1 (gTblSkeleton (Proxy :: Proxy p))
+instance GTableSkeleton p => GTableSkeleton (M1 Generic.C f p) where
+    gTblSkeleton (_ :: Proxy (M1 Generic.C f p)) = M1 (gTblSkeleton (Proxy :: Proxy p))
+instance GTableSkeleton p => GTableSkeleton (M1 D f p) where
+    gTblSkeleton (_ :: Proxy (M1 D f p)) = M1 (gTblSkeleton (Proxy :: Proxy p))
 instance GTableSkeleton U1 where
     gTblSkeleton _ = U1
 instance (GTableSkeleton a, GTableSkeleton b) =>
     GTableSkeleton (a :*: b) where
         gTblSkeleton _ = gTblSkeleton (Proxy :: Proxy a) :*: gTblSkeleton (Proxy :: Proxy b)
-instance GTableSkeleton (K1 Generic.R (Ignored field)) where
+instance BasicType field => GTableSkeleton (K1 Generic.R (Ignored field)) where
     gTblSkeleton _ = K1 Ignored
+-- instance GTableSkeleton (K1 Generic.R (Ignored Text)) where
+--     gTblSkeleton _ = K1 Ignored
+-- instance GTableSkeleton (K1 Generic.R (Ignored Double)) where
+--     gTblSkeleton _ = K1 Ignored
 instance ( Generic (tbl Ignored)
          , GTableSkeleton (Rep (tbl Ignored)) ) =>
     GTableSkeleton (K1 Generic.R (tbl Ignored)) where
@@ -762,6 +828,11 @@ instance ( Generic (tbl (Nullable Ignored))
          , GTableSkeleton (Rep (tbl (Nullable Ignored))) ) =>
     GTableSkeleton (K1 Generic.R (tbl (Nullable Ignored))) where
     gTblSkeleton _ = K1 (to' (gTblSkeleton (Proxy :: Proxy (Rep (tbl (Nullable Ignored))))))
+
+class BasicType t
+instance BasicType Int
+instance BasicType Double
+instance BasicType Text
 
 -- * Internal functions
 
