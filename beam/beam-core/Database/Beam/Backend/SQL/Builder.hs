@@ -106,6 +106,7 @@ tableOp op all a b =
 
 instance IsSql92InsertSyntax SqlSyntaxBuilder where
   type Sql92InsertValuesSyntax SqlSyntaxBuilder = SqlSyntaxBuilder
+  type Sql92InsertValuesInfo SqlSyntaxBuilder = ()
 
   insertStmt _ table _ fields values =
     SqlSyntaxBuilder $

@@ -264,7 +264,9 @@ instance IsDatabaseEntity be (TableEntity tbl) where
 
   dbEntityName f (DatabaseTable t s) = fmap (\t' -> DatabaseTable t' s) (f t)
   dbEntityAuto nm =
-    DatabaseTable (unCamelCaseSel nm) defTblFieldSettings
+    DatabaseTable nm defTblFieldSettings
+    -- Renaming disabled
+    -- DatabaseTable (unCamelCaseSel nm) defTblFieldSettings
 
 instance IsDatabaseEntity be (ViewEntity tbl) where
   data DatabaseEntityDescriptor be (ViewEntity tbl) where

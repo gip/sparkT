@@ -164,15 +164,18 @@ insert (DatabaseEntity (DatabaseTable tblNm tblSettings)) (SqlInsertValues vs) =
     tblFields = allBeamValues (\(Columnar' f) -> _fieldName f) tblSettings
 
 -- Gilles
-tInsert :: forall table be db syntax. (Beamable table, IsSql92InsertSyntax syntax, Database db) =>
-         (DatabaseSettings be db -> DatabaseEntity be db (TableEntity table))
+tInsert :: forall table be db syntax.
+          (Beamable table, IsSql92InsertSyntax syntax, Database db,
+           Sql92InsertValuesInfo syntax ~ InstanceInfo db)
+       => InstanceVersioned db
+       -> (DatabaseSettings be db -> DatabaseEntity be db (TableEntity table))
        -> DatabaseSettings be db
           -- ^ Table to insert into
        -> SqlInsertValues (Sql92InsertValuesSyntax syntax) table
           -- ^ Values to insert. See 'insertValues', 'insertExpressions', and 'insertFrom' for possibilities.
        -> SqlInsert syntax
-tInsert toTblEntity dbSettings (SqlInsertValues vs) =
-    SqlInsert (insertStmt (Just $ dbSchema dbSettings) tblNm (tblSchema tblSettings) tblFields vs)
+tInsert versioned toTblEntity dbSettings (SqlInsertValues vs) =
+    SqlInsert (insertStmt (Just $ instanceInfo (dbSettings, versioned)) tblNm (tblSchema tblSettings) tblFields vs)
   where
     tblFields = allBeamValues (\(Columnar' f) -> _fieldName f) tblSettings
     DatabaseEntity (DatabaseTable tblNm (tblSettings :: TableSettings table)) = toTblEntity dbSettings

@@ -3,7 +3,7 @@
 -- | Finally tagless encoding of SQL92 syntax
 module Database.Beam.Backend.SQL.SQL92 where
 
-import Database.Beam.Schema (TableSchema, DatabaseSchema)
+import Database.Beam.Schema (TableSchema)
 import Database.Beam.Backend.Types
 import Database.Beam.Backend.SQL.Types
 
@@ -110,7 +110,8 @@ class IsSql92InsertValuesSyntax (Sql92InsertValuesSyntax insert) =>
   IsSql92InsertSyntax insert where
 
   type Sql92InsertValuesSyntax insert :: *
-  insertStmt :: Maybe DatabaseSchema
+  type Sql92InsertValuesInfo insert :: *
+  insertStmt :: Maybe (Sql92InsertValuesInfo insert)
              -> Text
              -> TableSchema
              -> [ Text ]
