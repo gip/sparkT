@@ -17,15 +17,15 @@ library
   hs-source-dirs:      src
   exposed-modules:     Lib,
                        Database.SparkT.AST,
-                       Database.SparkT.ASTBase,
-                       Database.SparkT.Internal
+                       Database.SparkT.ASTBase
   build-depends:       base >= 4.7 && < 5,
                        bytestring,
                        text,
                        string-conv,
                        aeson,
                        websockets,
-                       beam-core >= 0.3.2.0
+                       beam-core,
+                       sparkt-ast
   default-language:    Haskell2010
 
 executable sparkt

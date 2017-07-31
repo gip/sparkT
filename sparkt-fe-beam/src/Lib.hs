@@ -43,9 +43,7 @@ data Storage = S3 | PostgresSQL | Redshift
   deriving (Eq, Show, Generic)
 data Format = Parquet | CSV String | NA
   deriving (Eq, Show, Generic)
-instance ToJSON Format
 
-instance ToJSON Storage
 data Versioned = Versioned {
   batchId :: String,
   revisionId :: Int
@@ -57,7 +55,7 @@ data DatabaseMapping = DatabaseMapping {
   url :: String,
   schema :: DatabaseSchema
 } deriving (Eq, Show, Generic)
-instance ToJSON DatabaseMapping
+
 
 
 data FirstDb f = FirstDb {
@@ -119,5 +117,5 @@ downAst = (ast, astInsert)
 
 
 someFunc :: IO ()
-someFunc = BSL.putStrLn (encode a) >> BSL.putStrLn (encode b)
+someFunc = print a >> print b
   where (a,b) = downAst
