@@ -175,7 +175,7 @@ tInsert :: forall table be db syntax.
           -- ^ Values to insert. See 'insertValues', 'insertExpressions', and 'insertFrom' for possibilities.
        -> SqlInsert syntax
 tInsert versioned toTblEntity dbSettings (SqlInsertValues vs) =
-    SqlInsert (insertStmt (Just $ instanceInfo (dbSettings, versioned)) tblNm (tblSchema tblSettings) tblFields vs)
+    SqlInsert (insertStmt (Just $ instanceInfo (dbSettings, versioned, tblNm)) tblNm (tblSchema tblSettings) tblFields vs)
   where
     tblFields = allBeamValues (\(Columnar' f) -> _fieldName f) tblSettings
     DatabaseEntity (DatabaseTable tblNm (tblSettings :: TableSettings table)) = toTblEntity dbSettings

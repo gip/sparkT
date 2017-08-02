@@ -124,17 +124,18 @@ class Database db where
     -- Versioning for that instance
     type InstanceVersioned db :: *
     type InstanceInfo db :: *
-    instanceInfo :: (DatabaseSettings be db, InstanceVersioned db) -> InstanceInfo db
+    instanceInfo :: (DatabaseSettings be db, InstanceVersioned db, Text) -> InstanceInfo db
 
 -- Quick hack to generate a schema
-type DatabaseSchema = (String,[(String, [(String, TypeRep)])])
+type TableSchema = [(String, TypeRep, Bool)]
+type DatabaseSchema = (String,[(String, TableSchema)])
 
 class GDbSchema x where
-  gDbSchema :: Proxy x -> (String,[(String, [(String, TypeRep)])])
+  gDbSchema :: Proxy x -> (String,[(String, TableSchema)])
 instance (GDbSchema' (f ()), Datatype c) => GDbSchema (D1 c f p) where
   gDbSchema (_ :: Proxy (D1 c f p)) = (datatypeName (undefined :: D1 c f p), gDbSchema' (Proxy :: Proxy (f ())))
 class GDbSchema' x where
-  gDbSchema' :: Proxy x -> [(String, [(String, TypeRep)])]
+  gDbSchema' :: Proxy x -> [(String, TableSchema)]
 instance GDbSchema' (f ()) => GDbSchema' (C1 c f p) where
   gDbSchema' (_ :: Proxy (C1 c f p)) = gDbSchema' (Proxy :: Proxy (f ()))
 instance (GDbSchema' (a ()), GDbSchema' (b ())) => GDbSchema' ((a :*: b) ()) where
@@ -518,8 +519,6 @@ class Beamable table where
     tblSchema _ = gTblSchema (Proxy :: Proxy (Rep (TableSettings table) ()))
 
 -- Quick hack to generate a schema
-type TableSchema = [(String, TypeRep)]
-
 class GSchema x where
   gTblSchema :: Proxy x -> TableSchema
 instance GSchema (f ()) => GSchema (M1 D c f p) where
@@ -530,13 +529,21 @@ instance GSchema (U1 p) where
   gTblSchema _ = []
 instance (GSchema (a ()), GSchema (b ())) => GSchema ((a :*: b) ()) where
   gTblSchema _ = gTblSchema (Proxy :: Proxy (a ())) ++ gTblSchema (Proxy :: Proxy (b ()))
-instance (Selector s, Typeable t) => GSchema (M1 S s (K1 Generic.R (TableField table t)) p) where
-  gTblSchema _ = [ ( selName (undefined :: M1 S s (K1 Generic.R (TableField table t)) ()) , typeOf (undefined :: t) ) ]
+instance {-# OVERLAPPING #-} (Selector s, Typeable t, FieldType t) => GSchema (M1 S s (K1 Generic.R (TableField table (Maybe t))) p) where
+  gTblSchema _ = [ ( selName (undefined :: M1 S s (K1 Generic.R (TableField table t)) ()), typeOf (undefined :: t), True ) ]
+instance {-# OVERLAPPABLE #-} (Selector s, Typeable t, FieldType t) => GSchema (M1 S s (K1 Generic.R (TableField table t)) p) where
+  gTblSchema _ = [ ( selName (undefined :: M1 S s (K1 Generic.R (TableField table t)) ()), typeOf (undefined :: t), False ) ]
 -- TODO: refactor instances below
 instance (Selector s) => GSchema (M1 S s (K1 Generic.R (PrimaryKey someT (TableField table))) p) where
   gTblSchema _ = error "SparkT does not allow cross-table declarations, use joins"
 instance (Selector s) => GSchema (M1 S s (K1 Generic.R (PrimaryKey someT (Nullable (TableField table)))) p) where
   gTblSchema _ = error "SparkT does not allow cross-table declarations, use joins"
+
+-- Supported Field types
+class FieldType t
+instance FieldType Int
+instance FieldType Text
+instance FieldType Double
 
 tableValuesNeeded :: Beamable table => Proxy table -> Int
 tableValuesNeeded (Proxy :: Proxy table) = length (allBeamValues (const ()) (tblSkeleton :: TableSkeleton table))

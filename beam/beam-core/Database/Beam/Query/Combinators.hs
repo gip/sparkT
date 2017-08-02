@@ -105,7 +105,7 @@ tAll_ :: forall be (db :: (* -> *) -> *) table select s.
        -> DatabaseSettings be db
        -> Q select db s (table (QExpr (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax select)) s))
 tAll_ versioned toTblEntity dbSettings =
-   Q $ liftF (QAll (Just $ instanceInfo (dbSettings, versioned)) tblNm tblSettings (\_ -> Nothing) id)
+   Q $ liftF (QAll (Just $ instanceInfo (dbSettings, versioned, tblNm)) tblNm tblSettings (\_ -> Nothing) id)
    where DatabaseEntity (DatabaseTable tblNm (tblSettings :: TableSettings table)) = toTblEntity dbSettings
 
 -- | Introduce all entries of a view into the 'Q' monad
