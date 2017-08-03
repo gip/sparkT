@@ -20,7 +20,9 @@ object SparkTService {
       val resp = Protocol.read(txt) match {
         case None => PUnparseable(Some(txt))
         case Some(PPing(id, msg)) => PPong(id, msg)
-        case Some(PSQLStatement(id, exe, sql)) => PUnsupported(id, "Command")
+        case Some(PSQLStatement(id, exe, sql)) => PUnsupported(id, "SQLStatement")
+        case Some(PETLStatement(id, exe, dag)) => PUnsupported(id, "ETLStatement")
+        case _ => PUnsupported(0, "Unsupported message type")
       }
       TextMessage(Protocol.show(resp))
     case _ => TextMessage("Message type unsupported")

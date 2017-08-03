@@ -25,7 +25,8 @@ data ScalaCtor =
   SInnerJoin | SOuterJoin | SRightJoin | SLeftJoin | SSelectTable |
   SSelectCommand | SFromTable | STableFromSubSelect | SInsertCommand |
   SFieldName | SUnqualifiedField | SQualifiedField | SGrouping |
-  SAgg | SSetQuantifierAll | SSetQuantifierDistinct
+  SAgg | SSetQuantifierAll | SSetQuantifierDistinct | SCompOp |
+  SComparatorQuantifierAny | SComparatorQuantifierAll
   deriving (Show)
 
 type TableSchema = [(String, TypeRep, Bool)]
@@ -130,6 +131,9 @@ data ComparatorQuantifier
   = ComparatorQuantifierAny
   | ComparatorQuantifierAll
   deriving (Show, Eq, Generic)
+instance ToScalaExpr ComparatorQuantifier where
+  toSE ComparatorQuantifierAny = classCtor SComparatorQuantifierAny []
+  toSE ComparatorQuantifierAll = classCtor SComparatorQuantifierAll []
 
 data ExtractField
   = ExtractFieldTimeZoneHour
@@ -232,6 +236,7 @@ instance (ToScalaExpr (Expression a),
   toSE (ExpressionExists e) = classCtor SUnop ["Exists", toSE e]
   toSE (ExpressionFieldName fn) = classCtor SFieldName [toSE fn]
   toSE (ExpressionAgg name quant exprs) = classCtor SAgg [show name, toSE quant, toSE exprs]
+  toSE (ExpressionCompOp op quant lhs rhs) = classCtor SCompOp [show op, toSE quant, toSE lhs, toSE rhs]
   toSE a = notImplemented a
 
 newtype Projection a

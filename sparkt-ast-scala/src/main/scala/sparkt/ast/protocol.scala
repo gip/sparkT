@@ -2,9 +2,11 @@ package sparkt.ast.protocol
 
 import sparkt.ast.database._
 import sparkt.ast.sql._
+import sparkt.ast.etl._
 
 abstract class APPhrase
 case class PSQLStatement(id: Long, execute: Boolean, sql: ASCommand) extends APPhrase
+case class PETLStatement(id: Long, execute: Boolean, dag: SDAG) extends APPhrase
 case class PPing(id: Long, msg: String) extends APPhrase
 
 abstract class APResponse
@@ -18,7 +20,10 @@ object Protocol {
   import scala.reflect.runtime.universe._
   import scala.tools.reflect.ToolBox
 
-  val imports = "import sparkt.ast.protocol._; import sparkt.ast.sql._; import sparkt.ast.database._; "
+  val imports = "import sparkt.ast.protocol._; "+
+                "import sparkt.ast.sql._; "+
+                "import sparkt.ast.database._; "+
+                "import sparkt.ast.etl._; "
   val tb = runtimeMirror(getClass.getClassLoader).mkToolBox()
   def read(str: String): Option[APPhrase] = {
     try {
@@ -50,6 +55,7 @@ object Protocol {
       case PUnparseable(None) => "Unparseable Nothing"
       case PUnparseable(Some(msg)) => "Unparseable (Just \"" + msg + "\")"
       case PUnsupported(id, msg) => "Unsupported " + id + " \"" + msg + "\""
+      case _ => "Unsupported 0 \"Message type\""
     }
 }
 

@@ -1,32 +1,30 @@
-name:                sparkt-fe-beam
+name:                sparkt-fe-client
 version:             0.1.0.0
 -- synopsis:
 -- description:
 homepage:            https://github.com/gip/sparkt
 license:             MIT
--- license-file:        LICENSE
 author:              Gilles Pirio
 maintainer:          g36130@gmail.com
 copyright:           2017 Gilles Pirio
-category:            Database
+category:            Web
 build-type:          Simple
 -- extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Database.SparkT.AST,
-                       Database.SparkT.ASTBase
-  build-depends:       base >= 4.7 && < 5,
-                       bytestring,
-                       containers,
+  exposed-modules:     Database.SparkT.Client
+  build-depends:       HUnit,
+                       base >=4.9 && <4.10,
+                       containers >=0.5 && <0.6,
+                       parsec >=3.1 && <3.2,
                        text,
                        string-conv,
-                       aeson,
-                       websockets,
-                       beam-core,
                        sparkt-ast,
-                       sparkt-fe-client
+                       websockets
+  other-modules:
+  other-extensions:    OverloadedStrings
   default-language:    Haskell2010
 
 test-suite sparkt-test
@@ -34,10 +32,6 @@ test-suite sparkt-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   build-depends:       base
-                     , sparkt-fe-beam
+                     , sparkt-ast
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
-
-source-repository head
-  type:     git
-  location: https://github.com/gip/sparkt

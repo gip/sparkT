@@ -17,6 +17,7 @@ library
   exposed-modules:     Database.SparkT.AST.SQL,
                        Database.SparkT.AST.Database,
                        Database.SparkT.AST.Protocol,
+                       Database.SparkT.AST.ETL
                        Database.SparkT.AST.Internal
   build-depends:       HUnit,
                        base >=4.9 && <4.10,

@@ -36,6 +36,10 @@ case class SSelectTable(proj: Seq[(ASExpr, Option[String])],
 
 abstract class ASFrom
 case class SFromTable(source: ASTableSource, name: Option[String]) extends ASFrom
+case class SInnerJoin(lhs: ASFrom, rhs: ASFrom, on: Option[ASExpr]) extends ASFrom
+case class SOuterJoin(lhs: ASFrom, rhs: ASFrom, on: Option[ASExpr]) extends ASFrom
+case class SLeftJoin(lhs: ASFrom, rhs: ASFrom, on: Option[ASExpr]) extends ASFrom
+case class SRightJoin(lhs: ASFrom, rhs: ASFrom, on: Option[ASExpr]) extends ASFrom
 
 abstract class ASTableSource
 case class STableNamed(info: Option[DDatabaseMapping], name: String) extends ASTableSource
@@ -59,10 +63,15 @@ case class SLitDouble(lit: Double) extends ASExpr
 case class SBinop(op: String, lhs: ASExpr, rhs: ASExpr) extends ASExpr
 case class SFieldName(fn: ASFieldName) extends ASExpr
 case class SAgg(op: String, quant: Option[ASSetQuantifier], exprs: Seq[ASExpr]) extends ASExpr
+case class SCompOp(op: String, quant: Option[ASComparatorQuantifier], lhs: ASExpr, rhs: ASExpr) extends ASExpr
 
 abstract class ASFieldName
 case class SUnqualifiedField(name: String) extends ASFieldName
 case class SQualifiedField(qual: String, name: String) extends ASFieldName
+
+abstract class ASComparatorQuantifier
+case class SComparatorQuantifierAny() extends ASComparatorQuantifier
+case class SComparatorQuantifierAll() extends ASComparatorQuantifier
 
 object Parser {
   import scala.reflect.runtime.universe._

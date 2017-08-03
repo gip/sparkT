@@ -4,6 +4,7 @@
 module Database.SparkT.AST.Internal where
 
 import Data.List
+import Data.Set (Set, toList)
 import Data.Text (Text)
 import Data.Typeable
 import Data.Char (toLower)
@@ -20,6 +21,8 @@ instance ToScalaExpr () where
   toSE () = "()"
 instance ToScalaExpr a => ToScalaExpr [a] where
   toSE l = classCtor Seq (map toSE l)
+instance ToScalaExpr a => ToScalaExpr (Set a) where
+  toSE a = toSE (toList a)
 instance ToScalaExpr a => ToScalaExpr (Maybe a) where
   toSE Nothing = classCtor None []
   toSE (Just a) = classCtor Some [toSE a]
