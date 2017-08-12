@@ -7,16 +7,18 @@ import Database.SparkT.AST.Internal
 import Database.SparkT.AST.SQL
 import Database.SparkT.AST.ETL
 
-data PhraseCtor = PPing | PSQLStatement | PETLStatement
+data PhraseCtor = PPing | PSQLInsertStatement | PSQLSelectStatement | PETLStatement
   deriving (Show)
 
 data Phrase a =
     Ping Integer String
-  | SQLStatement Integer Bool (Command a)
+  | SQLInsertStatement Integer Bool (Insert a)
+  | SQLSelectStatement Integer Bool (Select a)
   | ETLStatement Integer Bool (DAG a)
   deriving (Show)
-instance (Show a, ToScalaExpr (Command a), ToScalaExpr a) => ToScalaExpr (Phrase a) where
-  toSE (SQLStatement id_ exe sql) = classCtor PSQLStatement [toSE id_, toSE exe, toSE sql]
+instance (Show a, ToScalaExpr (Command a), ToScalaExpr a, Ord a) => ToScalaExpr (Phrase a) where
+  toSE (SQLInsertStatement id_ exe ins) = classCtor PSQLInsertStatement [toSE id_, toSE exe, toSE ins]
+  toSE (SQLSelectStatement id_ exe sel) = classCtor PSQLSelectStatement [toSE id_, toSE exe, toSE sel]
   toSE (ETLStatement id_ exe dag) = classCtor PETLStatement [toSE id_, toSE exe, toSE dag]
   toSE (Ping id_ msg) = classCtor PPing [toSE id_, toSE msg]
 

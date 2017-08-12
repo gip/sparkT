@@ -18,22 +18,28 @@ library
                        Database.SparkT.AST.Database,
                        Database.SparkT.AST.Protocol,
                        Database.SparkT.AST.ETL
-                       Database.SparkT.AST.Internal
+                       Database.SparkT.AST.Internal,
+                       Database.SparkT.Parser.SQL
   build-depends:       HUnit,
                        base >=4.9 && <4.10,
                        containers >=0.5 && <0.6,
+                       set-monad,
                        parsec >=3.1 && <3.2,
                        text,
+                       mtl,
                        string-conv
-  other-modules:
+  other-modules:       Database.SparkT.Parser.Internal
   other-extensions:    OverloadedStrings
   default-language:    Haskell2010
 
-test-suite sparkt-test
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Spec.hs
-  build-depends:       base
-                     , sparkt-ast
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  default-language:    Haskell2010
+test-suite sparkt-ast-tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Main.hs
+  other-modules: Database.SparkT.Test.Parser.Select,
+                 Database.SparkT.Test.Parser.Expression
+  build-depends: base, sparkt-ast, text, bytestring, time, tasty, tasty-hunit, parsec >=3.1 && <3.2
+  default-language: Haskell2010
+  default-extensions: OverloadedStrings, FlexibleInstances, FlexibleContexts, GADTs, TypeFamilies,
+                      DeriveGeneric, DefaultSignatures, RankNTypes, StandaloneDeriving, KindSignatures,
+                      TypeApplications, ScopedTypeVariables, MultiParamTypeClasses

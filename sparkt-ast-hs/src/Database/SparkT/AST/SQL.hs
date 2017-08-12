@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric, GADTs, FlexibleContexts, OverloadedStrings,
              UndecidableInstances, TypeSynonymInstances, FlexibleInstances,
-             ScopedTypeVariables, DeriveFoldable #-}
+             ScopedTypeVariables, DeriveFoldable, DeriveTraversable #-}
 module Database.SparkT.AST.SQL where
 
 import Prelude hiding (Ordering)
@@ -26,12 +26,12 @@ data ScalaCtor =
   SSelectCommand | SFromTable | STableFromSubSelect | SInsertCommand |
   SFieldName | SUnqualifiedField | SQualifiedField | SGrouping |
   SAgg | SSetQuantifierAll | SSetQuantifierDistinct | SCompOp |
-  SComparatorQuantifierAny | SComparatorQuantifierAll
+  SComparatorQuantifierAny | SComparatorQuantifierAll | SStar
   deriving (Show)
 
 type TableSchema = [(String, TypeRep, Bool)]
 
-cleanShow a = filter (\c -> c /= '\"') (show a)
+cleanShow a = filter (/= '\"') (show a)
 notImplemented a = concat ["throw NotImplemented(\"", cleanShow a, "\")"]
 unhandledType a = concat ["throw UnhandledType(\"", cleanShow a, "\")"]
 
@@ -54,7 +54,7 @@ data Select a
        [Ordering a]    -- selectOrdering
        (Maybe Integer) -- selectLimit
        (Maybe Integer) -- selectOffset
-    deriving (Show, Eq, Generic, Foldable)
+    deriving (Show, Eq, Generic, Foldable, Traversable, Functor)
 instance (ToScalaExpr a, Show a) => ToScalaExpr (Select a) where
   toSE (Select table ord limit offset) = classCtor SSelect [toSE table, toSE ord, toSE limit, toSE offset]
 
@@ -68,7 +68,7 @@ data SelectTable a
   | UnionTables Bool (SelectTable a) (SelectTable a)
   | IntersectTables Bool (SelectTable a) (SelectTable a)
   | ExceptTable Bool (SelectTable a) (SelectTable a)
-  deriving (Show, Eq, Generic, Foldable)
+  deriving (Show, Eq, Generic, Foldable, Traversable, Functor)
 instance (ToScalaExpr (Projection a),
           ToScalaExpr (From a),
           ToScalaExpr (Expression a),
@@ -89,7 +89,7 @@ data Insert a
      (Maybe TableSchema) -- insertTableSchema
      [Text]              -- insertFields
      (InsertValues a)    -- insertValues
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Generic, Functor, Foldable)
 instance (ToScalaExpr a, Show a) => ToScalaExpr (Insert a) where
   toSE (Insert info table schema fields values) =
     -- Schema is *not* used here
@@ -98,7 +98,7 @@ instance (ToScalaExpr a, Show a) => ToScalaExpr (Insert a) where
 data InsertValues a
   = InsertValues [[Expression a]]
   | InsertSelect (Select a)
-  deriving (Show, Eq, Generic, Foldable)
+  deriving (Show, Eq, Generic, Foldable, Functor)
 instance (ToScalaExpr (Expression a),
           ToScalaExpr (Select a)) => ToScalaExpr (InsertValues a) where
   toSE (InsertValues values) = classCtor SInsertValues [toSE values]
@@ -214,6 +214,7 @@ data Expression a
 
   | ExpressionCountAll
   | ExpressionAgg Text (Maybe SetQuantifier) [ Expression a ]
+  | ExpressionWindow (Expression a) (Window a)
 
   | ExpressionSubquery (Select a)
   | ExpressionUnique (Select a)
@@ -221,7 +222,7 @@ data Expression a
   | ExpressionExists (Select a)
 
   | ExpressionCurrentTimestamp
-  deriving (Foldable, Show, Eq, Generic)
+  deriving (Foldable, Show, Eq, Generic, Traversable, Functor)
 instance (ToScalaExpr (Expression a),
           ToScalaExpr (Select a),
           Show a) => ToScalaExpr (Expression a) where
@@ -239,28 +240,49 @@ instance (ToScalaExpr (Expression a),
   toSE (ExpressionCompOp op quant lhs rhs) = classCtor SCompOp [show op, toSE quant, toSE lhs, toSE rhs]
   toSE a = notImplemented a
 
+data Window a
+  = Window [Expression a]                     -- Partition by
+           [Ordering a]                       -- Order by
+           (Maybe (WindowFrame a))            -- Frame
+  deriving (Foldable, Show, Eq, Generic, Traversable, Functor)
+
+data WindowFrame a
+  = WindowFrame Bool {- True for Range, False for Rows -}
+                (WindowFramePos a)
+                (Maybe (WindowFramePos a)) {- Between if that is Just -}
+  deriving (Foldable, Show, Eq, Generic, Traversable, Functor)
+
+data WindowFramePos a
+  = WindowFrameUnboundedPreceding
+  | WindowFramePreceding Integer
+  | WindowFrameCurrentRow
+  | WindowFrameUnboundedFollowing
+  | WindowFrameFollowing Integer
+  deriving (Foldable, Show, Eq, Generic, Traversable, Functor)
+
 newtype Projection a
   = ProjExprs [(Expression a, Maybe Text)]
-  deriving (Show, Eq, Generic, Foldable)
+  deriving (Show, Eq, Generic, Foldable, Traversable, Functor)
 instance (ToScalaExpr (Expression a)) => ToScalaExpr (Projection a) where
   toSE (ProjExprs projs) = toSE projs
 
 data Ordering a
   = OrderingAsc (Expression a)
   | OrderingDesc (Expression a)
-  deriving (Show, Eq, Generic, Foldable)
+  deriving (Show, Eq, Generic, Foldable, Traversable, Functor)
 instance (ToScalaExpr (Expression a)) => ToScalaExpr (Ordering a) where
   toSE (OrderingAsc e) = classCtor SAsc [toSE e]
   toSE (OrderingDesc e) = classCtor SDesc [toSE e]
 
-newtype Grouping a = Grouping [ Expression a ] deriving (Show, Eq, Generic, Foldable)
+newtype Grouping a = Grouping [ Expression a ]
+  deriving (Show, Eq, Generic, Foldable, Traversable, Functor)
 instance (ToScalaExpr (Expression a)) => ToScalaExpr (Grouping a) where
   toSE (Grouping l) = classCtor SGrouping $ map toSE l
 
 data TableSource a
   = TableNamed (Maybe a) Text TableSchema
   | TableFromSubSelect (Select a)
-  deriving (Show, Eq, Generic, Foldable)
+  deriving (Show, Eq, Generic, Foldable, Traversable, Functor)
 instance (ToScalaExpr a,
           ToScalaExpr (Projection a),
           ToScalaExpr (From a),
@@ -277,7 +299,7 @@ data From a
   | LeftJoin (From a) (From a) (Maybe (Expression a))
   | RightJoin (From a) (From a) (Maybe (Expression a))
   | OuterJoin (From a) (From a) (Maybe (Expression a))
-  deriving (Show, Eq, Generic, Foldable)
+  deriving (Show, Eq, Generic, Foldable, Traversable, Functor)
 instance (ToScalaExpr (Expression a),
           ToScalaExpr (Projection a),
           ToScalaExpr (Grouping a),
@@ -292,8 +314,9 @@ instance (ToScalaExpr (Expression a),
 data Value where
   Value :: (Show a, Eq a, Typeable a) => a -> Value
 
+-- TODO: the code below is ugly, is there any other concise way to write that code?
 instance ToScalaExpr Value where
-  toSE a = case msum (map (\f -> f a) [fInt, fStr, fDbl, fTxt]) of
+  toSE a = case msum (map (\f -> f a) [fInt, fStr, fDbl, fTxt, fMInt]) of
     Just s -> s
     _ -> unhandledType a
     where fInt (Value a) = case cast a of Just (i :: Int) -> Just $ "SLitInt(" ++ show i ++ ")"
@@ -304,6 +327,15 @@ instance ToScalaExpr Value where
                                           Nothing -> Nothing
           fDbl (Value a) = case cast a of Just (d :: Double) -> Just $ "SLitDouble(" ++ show d ++ ")"
                                           Nothing -> Nothing
+          fMInt (Value a) = case cast a of Just (mi :: Maybe Int) -> -- Ugly, ugly ugly!
+                                             case mi of Just i -> Just $ "SLitInt(" ++ show i ++ ")"
+                                                        Nothing -> Just "SLitNull()" -- Is that right?
+                                           Nothing -> Nothing
+          fNull (Value a) = case cast a of Just Null -> Just "SLitNull()"
+                                           Nothing -> Nothing
+-- Special SQL value null
+data Null = Null
+  deriving (Show, Eq, Typeable)
 
 instance Eq Value where
   Value a == Value b =
