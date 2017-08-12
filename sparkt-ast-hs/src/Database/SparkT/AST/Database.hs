@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric, GADTs, FlexibleContexts, OverloadedStrings,
              UndecidableInstances, TypeSynonymInstances, FlexibleInstances,
-             ScopedTypeVariables #-}
+             ScopedTypeVariables, DeriveFunctor #-}
 module Database.SparkT.AST.Database where
 
 import Data.Typeable
@@ -8,8 +8,8 @@ import GHC.Generics
 
 import Database.SparkT.AST.Internal
 
-type TableSchema = [(String, TypeRep, Bool)]
-type DatabaseSchema = (String, [(String, TableSchema)])
+type TableSchema t = [(String, t, Bool)]
+type DatabaseSchema t = (String, [(String, TableSchema t)])
 
 data DDatabaseMappingCtor =
   DDatabaseMapping | DS3 | DPostgresSQL | DRedshift | DParquet |
@@ -38,13 +38,15 @@ data Versioned = Versioned {
 } deriving (Eq, Show, Ord, Generic)
 
 -- TODO: rename that, it's not only a database
-data DatabaseMapping = DatabaseMapping {
+data DatabaseMapping t = DatabaseMapping {
   table :: String,
   storage :: Storage,
   format :: Format,
   url :: String,
-  schema :: DatabaseSchema
-} deriving (Eq, Show, Ord, Generic)
-instance ToScalaExpr DatabaseMapping where
+  schema :: DatabaseSchema t
+} deriving (Eq, Show, Ord, Generic, Functor)
+instance ToScalaExpr t => ToScalaExpr (DatabaseMapping t) where
   toSE (DatabaseMapping table sto fmt url schema) =
     classCtor DDatabaseMapping [toSE table, toSE sto, toSE fmt, toSE url, toSE schema]
+
+type DatabaseContext = DatabaseMapping TypeRep
