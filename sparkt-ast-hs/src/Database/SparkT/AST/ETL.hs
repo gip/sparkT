@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts, DeriveTraversable #-}
 module Database.SparkT.AST.ETL where
 
+import Control.Monad.Except
+
 import Data.Set.Monad as S
 import Data.List as L
 import Data.Foldable as F
@@ -9,22 +11,23 @@ import Data.Text (Text)
 import Database.SparkT.AST.Internal
 import Database.SparkT.AST.Database
 import Database.SparkT.AST.SQL
+import Database.SparkT.AST.Error
 
-data DAGCtor = SDAG | SVertex | SArc | SProcessingStep
+data DAGCtor = SDAG | SVertex | SArc | SStep
   deriving (Show)
 
 -- A step
-data ProcessingStep a = ProcessingStep { stepName :: String,
+data Step a = Step { stepName :: String,
                                          stepProcess :: Insert a }
   deriving (Functor, Foldable)
-instance Show (ProcessingStep a) where
-  show (ProcessingStep name _) = "ProcessingStep \"" ++ name ++ "\" <function>"
-instance Ord (ProcessingStep a) where
-  compare (ProcessingStep a _) (ProcessingStep b _) = compare a b
-instance Eq (ProcessingStep a) where
-  (==) (ProcessingStep a _) (ProcessingStep b _) = (==) a b
-instance (Show a, ToScalaExpr a) => ToScalaExpr (ProcessingStep a) where
-  toSE (ProcessingStep n i) = classCtor SProcessingStep [toSE n, toSE i]
+instance Show (Step a) where
+  show (Step name _) = "Step \"" ++ name ++ "\" <function>"
+instance Ord (Step a) where
+  compare (Step a _) (Step b _) = compare a b
+instance Eq (Step a) where
+  (==) (Step a _) (Step b _) = (==) a b
+instance (Show a, ToScalaExpr a) => ToScalaExpr (Step a) where
+  toSE (Step n i) = classCtor SStep [toSE n, toSE i]
 
 -- ETLs as DAGs
 newtype Vertex a = Vertex a
@@ -34,7 +37,7 @@ instance ToScalaExpr a => ToScalaExpr (Vertex a) where
 
 data Arc a = Arc { predecessors :: Set (Vertex a),
                    successor :: Vertex a,
-                   process :: ProcessingStep a }
+                   process :: Step a }
   deriving (Show, Ord, Eq, Functor, Foldable)
 instance (ToScalaExpr a, Show a, Ord a) => ToScalaExpr (Arc a) where
   toSE (Arc preds succ pro) = classCtor SArc [toSE preds, toSE succ, toSE pro]
@@ -48,13 +51,25 @@ instance (ToScalaExpr a, Show a, Ord a) => ToScalaExpr (DAG a) where
   toSE (DAG n v a) = classCtor SDAG [toSE n, toSE v, toSE a]
 
 -- From a list of ETLs create a DAG representation
-computeDAG :: Ord a => String -> [ProcessingStep a] -> DAG a
-computeDAG name steps = DAG name vertices arcs
+computeDAG :: (Ord a, MonadError (Error String) m) => String -> [Step a] -> m (DAG a)
+computeDAG name steps = do
+  (vertices, arcs) <- F.foldrM f (empty, empty) steps --
+  catchCycle $ DAG name vertices arcs
   where
-    (vertices, arcs) = L.foldr f (empty, empty) steps
-    f step@(ProcessingStep name process) (v, a) = (S.insert succ v, S.insert (Arc (S.fromList preds) succ step) a)
+    f step@(Step name process) (v, a) =
+      case succ' of Left e -> throwError e
+                    Right succ ->
+                      if S.member succ v
+                        then throwError $ ImmutabilityViolationError name "only one arc going to a vertex is allowed"
+                        else
+                          return (S.insert succ v,
+                          S.insert (Arc (S.fromList preds) succ step) a)
       where
-        succ = case process of Insert (Just info) _ _ _ _ -> Vertex info
-                               _ -> error "Context missing"
+        succ' = case process of Insert (Just info) _ _ _ _ -> Right $ Vertex info
+                                _ -> Left $ MissingContextError name "context missing"
         preds = case process of
                   Insert _ _ _ _ values -> F.foldr (\mapping acc -> Vertex mapping : acc) [] values
+    catchCycle dag =
+      let hasCycle = False in -- TODO: implement a function to catch cycles
+      if hasCycle then throwError $ DAGCycleError name "cycle detected"
+                  else return dag

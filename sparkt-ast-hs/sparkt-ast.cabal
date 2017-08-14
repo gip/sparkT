@@ -21,7 +21,8 @@ library
                        Database.SparkT.AST.Internal,
                        Database.SparkT.Parser.SQL,
                        Database.SparkT.Executor.Context,
-                       Database.SparkT.Executor.SQL
+                       Database.SparkT.Executor.SQL,
+                       Database.SparkT.AST.Error
   build-depends:       HUnit,
                        base >=4.9 && <4.10,
                        containers >=0.5 && <0.6,
@@ -31,7 +32,7 @@ library
                        mtl,
                        string-conv
   other-modules:       Database.SparkT.Parser.Internal
-  other-extensions:    OverloadedStrings
+  other-extensions:    OverloadedStrings, TypeFamilies, GADTs
   default-language:    Haskell2010
 
 test-suite sparkt-ast-tests
@@ -40,7 +41,8 @@ test-suite sparkt-ast-tests
   main-is: Main.hs
   other-modules: Database.SparkT.Test.Parser.Select,
                  Database.SparkT.Test.Parser.Expression,
-                 Database.SparkT.Test.Executor.Select
+                 Database.SparkT.Test.Executor.Select,
+                 Database.SparkT.Test.AST.ETL
   build-depends: base,
                  containers,
                  mtl,

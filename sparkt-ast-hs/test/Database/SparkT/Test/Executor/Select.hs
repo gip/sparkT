@@ -34,12 +34,12 @@ simpleCtx =
       fromList [("table1", Frame [("id", EInt, False),
                                   ("name", EString, True)]
                             (return $ L.map toV [(1, "Ut")
-                                              ,(2, "Resonare")
-                                              ,(3, "Mira")
-                                              ,(4, "Famuli")
-                                              ,(5, "Solve")
-                                              ,(6, "Labii")
-                                              ,(7, "Sancte")])
+                                                ,(2, "Resonare")
+                                                ,(3, "Mira")
+                                                ,(4, "Famuli")
+                                                ,(5, "Solve")
+                                                ,(6, "Labii")
+                                                ,(7, "Sancte")])
                 )]
             )]
 
