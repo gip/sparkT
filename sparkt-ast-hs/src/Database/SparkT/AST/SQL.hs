@@ -84,7 +84,7 @@ instance (ToScalaExpr (Projection a),
 
 data Insert a
   = Insert
-     (Maybe a)           -- insertDatabaseInfo
+     a
      Text                -- insertTable
      (Maybe TableSchema) -- insertTableSchema
      [Text]              -- insertFields
@@ -280,7 +280,7 @@ instance (ToScalaExpr (Expression a)) => ToScalaExpr (Grouping a) where
   toSE (Grouping l) = classCtor SGrouping $ map toSE l
 
 data TableSource a
-  = TableNamed (Maybe a) Text TableSchema
+  = TableNamed a Text TableSchema
   | TableFromSubSelect (Select a)
   deriving (Show, Eq, Generic, Foldable, Traversable, Functor)
 instance (ToScalaExpr a,

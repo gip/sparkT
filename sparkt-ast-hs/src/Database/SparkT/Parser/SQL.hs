@@ -22,13 +22,13 @@ import Database.SparkT.AST.SQL
 import Database.SparkT.Parser.Internal
 
 -- Select
-parseSelect :: Parser (Select a)
+parseSelect :: Parser (Select ())
 parseSelect =  Select <$> parseSelectTable
                       <*> parseOrder
                       <*> parseLimit
                       <*> parseOffset
 
-parseSelectTable :: Parser (SelectTable a)
+parseSelectTable :: Parser (SelectTable ())
 parseSelectTable = union
   where
     simple =
@@ -43,12 +43,12 @@ parseSelectTable = union
       all <- option False (keyword "ALL" *> pure True)
       return $ UnionTables all
 
-parseProj :: Parser (Projection a)
+parseProj :: Parser (Projection ())
 parseProj = ProjExprs <$> (proj `sepBy1` comma)
   where proj = (,) <$> parseExpression <*> optionMaybe name
         name = (keyword "AS" *> identifierText) <|> try identifierText
 
-parseFrom :: Parser (From a)
+parseFrom :: Parser (From ())
 parseFrom =  joins <|> try (parens parseFrom) <|> try fromTable
   where
     fromTable = FromTable <$> try parseTableSource <*> optionMaybe identifierText
@@ -64,16 +64,16 @@ parseFrom =  joins <|> try (parens parseFrom) <|> try fromTable
         "LEFT" -> return $ LeftJoin source source' on
         "RIGHT" -> return $ RightJoin source source' on
 
-parseTableSource :: Parser (TableSource a)
+parseTableSource :: Parser (TableSource ())
 parseTableSource = try subSelect <|> try named
   where
-    named = TableNamed <$> pure Nothing <*> identifierTableText <*> pure []
+    named = TableNamed <$> pure () <*> identifierTableText <*> pure []
     subSelect = TableFromSubSelect <$> parens parseSelect
 
-parseWhere :: Parser (Maybe (Expression a))
+parseWhere :: Parser (Maybe (Expression ()))
 parseWhere = optionMaybe (keyword "WHERE" *> parseExpression)
 
-parseGrouping :: Parser (Maybe (Grouping a))
+parseGrouping :: Parser (Maybe (Grouping ()))
 parseGrouping = optionMaybe (keyword "GROUP" *> keyword "BY" *> groups)
   where groups = Grouping <$> (parseExpression `sepBy1` comma)
 
@@ -83,7 +83,7 @@ parseLimit = optionMaybe (keyword "LIMIT" *> integer)
 parseOffset :: Parser (Maybe Integer)
 parseOffset = optionMaybe (keyword "OFFSET" *> integer)
 
-parseOrder :: Parser [Ordering a]
+parseOrder :: Parser [Ordering ()]
 parseOrder = option [] (keyword "ORDER" *> keyword "BY" *> order)
   where order = (try asc <|> try desc <|> try ascDefault) `sepBy1` comma
         asc = OrderingAsc <$> parseExpression <* keyword "ASC"
@@ -91,10 +91,10 @@ parseOrder = option [] (keyword "ORDER" *> keyword "BY" *> order)
         ascDefault = OrderingAsc <$> parseExpression
 
 -- Expressions
-parseExpression' :: Parser (Expression a)
+parseExpression' :: Parser (Expression ())
 parseExpression' = parseExpressionNonLR
 
-parseExpressionNonLR :: Parser (Expression a)
+parseExpressionNonLR :: Parser (Expression ())
 parseExpressionNonLR =  try $ parens parseExpression'
                     <|> try parseCase
                     <|> try parseCast
@@ -105,14 +105,14 @@ parseExpressionNonLR =  try $ parens parseExpression'
                     <|> try parseExists
 
 -- https://stackoverflow.com/questions/4622/sql-case-statement-syntax
-parseCase :: Parser (Expression a)
+parseCase :: Parser (Expression ())
 parseCase = try $ do
   keyword "CASE"
   caseExpr <- (parseSearchedCase <|> parseSimpleCase)
   keyword "END"
   return caseExpr
   where
-    parseWhen :: Parser (Expression a, Expression a)
+    parseWhen :: Parser (Expression (), Expression ())
     parseWhen = try $ do
       keyword "WHEN"
       wExpr <- parseExpression
@@ -120,9 +120,9 @@ parseCase = try $ do
       tExpr <- parseExpression
       return (wExpr, tExpr)
     parseElse = (keyword "ELSE" *> parseExpression) <|> pure (ExpressionValue $ Value Null)
-    parseSearchedCase :: Parser (Expression a)
+    parseSearchedCase :: Parser (Expression ())
     parseSearchedCase = ExpressionCase <$> many1 parseWhen <*> parseElse
-    parseSimpleCase :: Parser (Expression a)
+    parseSimpleCase :: Parser (Expression ())
     parseSimpleCase = do
       cExpr <- parseExpression
       wExprs <- many1 parseWhen
@@ -130,10 +130,10 @@ parseCase = try $ do
       return $ ExpressionCase (map (trans cExpr) wExprs) eExpr
       where trans cExpr (wExpr, tExpr) = (ExpressionCompOp "=" Nothing cExpr wExpr, tExpr)
 
-parseExists :: Parser (Expression a)
+parseExists :: Parser (Expression ())
 parseExists = keyword "EXISTS" *> parens (ExpressionExists <$> parseSelect)
 
-parseCast :: Parser (Expression a)
+parseCast :: Parser (Expression ())
 parseCast = try (keyword "CAST" *> parens doit)
   where
     doit = try $ do
@@ -148,7 +148,7 @@ parseDataType =
   <|> try (keyword "STRING" *> (pure $ DataTypeChar True Nothing))
   <|> try (keyword "DATE" *> pure DataTypeDate)
 
-parseFunctionCall :: Parser (Expression a)
+parseFunctionCall :: Parser (Expression ())
 parseFunctionCall = try $ do
   fn <- (:) <$> firstChar <*> many nonFirstChar
   callList <- parens (sepBy parseExpression comma)
@@ -158,14 +158,14 @@ parseFunctionCall = try $ do
     nonFirstChar = digit <|> firstChar
 
 -- https://www.postgresql.org/docs/9.1/static/sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS
-parseWindowCall :: Parser (Expression a)
+parseWindowCall :: Parser (Expression ())
 parseWindowCall = try $ do
   expr <- parseFunctionCall
   keyword "OVER"
   window <- parens parseWindowDef -- Only window definitions is supported
   return $ ExpressionWindow expr window
   where
-    parseWindowDef :: Parser (Window a)
+    parseWindowDef :: Parser (Window ())
     parseWindowDef = try $ do
       keyword "PARTITION"
       keyword "BY"
@@ -207,7 +207,7 @@ qualifiedName = lexeme doit
     firstChar = letter <|> char '_'
     nonFirstChar = digit <|> firstChar
 
-parseExpressionFieldName :: Parser (Expression a)
+parseExpressionFieldName :: Parser (Expression ())
 parseExpressionFieldName = ExpressionFieldName <$> qualifiedName
 
 -- Values
