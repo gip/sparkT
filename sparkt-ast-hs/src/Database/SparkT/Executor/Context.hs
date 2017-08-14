@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
 module Database.SparkT.Executor.Context where
 
 import Control.Monad
@@ -18,7 +18,8 @@ import Database.SparkT.AST.Error
 
 filteri :: (a -> Bool) -> [a] -> [(Int, a)]
 filteri f l = doit 0 l
-  where doit n (x:xs) = if f x then (n, x):doit (n+1) xs
+  where doit _ [] = []
+        doit n (x:xs) = if f x then (n, x):doit (n+1) xs
                                else doit (n+1) xs
 
 data Row m i r t = Row { rName      :: i,        -- colomn name
@@ -30,14 +31,15 @@ data Row m i r t = Row { rName      :: i,        -- colomn name
 -- TODO: enforce that the length of type and value lists are equal
 type Frame m i r t = [Row m i r t]
 
-instance (Eq i, Eq t, Eq r) => Eq (Row Identity i r t) where
+instance (Eq i, Eq t, Eq r, Eq (m e [r])) => Eq (Row (m e) i r t) where
   (==) (Row i s t b r) (Row i' s' t' b' r') =
-    (==) (i,s,t,b,runIdentity r) (i',s',t',b',runIdentity r')
-instance (Show i, Show r, Show t) => Show (Row m i r t) where -- TODO: better!
-  show (Row i s t b _) = concat ["Row ", show i, " ",
+    (==) (i,s,t,b,r) (i',s',t',b',r')
+
+instance (Show i, Show r, Show t, Show (m e [r])) => Show (Row (m e) i r t) where -- TODO: better!
+  show (Row i s t b r) = concat ["Row ", show i, " ",
                                          show s, " ",
                                          show t, " ",
-                                         show b, " <values>"]
+                                         show b, " ", show r]
 
 type Context m i r t = Map i                  -- Table name
                              (Frame m i r t)  -- Frames
@@ -52,3 +54,16 @@ getColumn fr name scope =
   where
     scopeMatch Nothing s = True
     scopeMatch (Just scope) s = scope==s
+
+
+-- Context specialized used for typechecking and execution
+type ContextTE m = Context m String Value EType
+
+data EType = EString | EInt | EBool | EDouble
+  deriving (Show, Eq)
+
+-- mapEtype :: TypeRep -> EType
+-- mapEtype dt | dt == typeOf (1::Int) = EInt
+--             | dt == typeOf (1::Integer) = EInt
+--             | dt == typeOf (True::Bool) = EBool
+--             | dt == typeOf (1.0::Double) = EDouble

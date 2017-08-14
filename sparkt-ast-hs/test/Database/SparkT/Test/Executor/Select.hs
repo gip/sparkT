@@ -54,8 +54,7 @@ contextualize ctx select = fmap (\_ -> ctx) select
 
 fromRight (Right a) = a
 
-run :: ExceptT e Identity a -> Either e a
-run = runIdentity . runExceptT
+run = join . runExceptT
 
 simple :: TestTree
 simple = testGroup "A very simple example"
@@ -63,19 +62,29 @@ simple = testGroup "A very simple example"
     testCase "No clause" $
       run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1;")))
         @?= Right simpleFrame
+
   , testCase "Limit clause" $
       run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1 LIMIT 2;")))
-        @?= Right (L.map (\r -> r { rRepr = (liftM $ take 2) $ rRepr r}) simpleFrame)
+        @?= Right (L.map (\r -> r { rRepr = liftM (take 2) $ rRepr r}) simpleFrame)
+
   , testCase "Offset clause" $
       run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1 OFFSET 2;")))
-        @?= Right (L.map (\r -> r { rRepr = (liftM $ drop 2) $ rRepr r}) simpleFrame)
+        @?= Right (L.map (\r -> r { rRepr = liftM (drop 2) $ rRepr r}) simpleFrame)
+
   , testCase "Offset and limit clause" $
-      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1 LIMIT 2 OFFSET 2;")))
-        @?= Right (L.map (\r -> r { rRepr = (liftM $ take 2 . drop 2) $ rRepr r}) simpleFrame)
-  , testCase "Simple select with where clause" $
-      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name AS name0 FROM table1 WHERE id>6;")))
-        @?= Right [Row "name0" "" EString True (return [Value ("Sancte"::String)])]
-  , testCase "This should not typecheck" $
-      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name+id FROM table1;")))
-        @?= Left (ExpressionTypeMismatchError "Projection clause" $ L.concat [show EString, " vs ", show EInt])
+      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1 LIMIT 1 OFFSET 5;")))
+        @?= Right [Row "id" "" EInt False (return [Value (6::Integer)]),
+                   Row "name" "" EString True (return [Value ("Labii"::String)])]
+
+  , testCase "Simple projection" $
+      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT id FROM table1 OFFSET 5;")))
+        @?= Right [Row "id" "" EInt False (return [Value (6::Integer), Value (7::Integer)])]
+
+  -- , testCase "Simple select with where clause" $
+  --     run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name AS name0 FROM table1 WHERE id>6;")))
+  --       @?= Right [Row "name0" "" EString True (return [Value ("Labii"::String)])]
+  --
+  -- , testCase "This should not typecheck" $
+  --     run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name+id FROM table1;")))
+  --       @?= Left (ExpressionTypeMismatchError "Projection clause" $ L.concat [show EString, " vs ", show EInt])
   ]

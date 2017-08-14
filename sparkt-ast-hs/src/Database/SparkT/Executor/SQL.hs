@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, OverloadedStrings #-}
 module Database.SparkT.Executor.SQL (
-      executeInsert
-    , executeSelect
+      executeSelect
     , EType(..)
     , evalS
   ) where
@@ -11,36 +10,25 @@ import Control.Monad.Except
 
 import Data.Typeable
 import Data.String.Conv
+import Data.Maybe (isJust)
 import Data.Map as M
 import Data.List as L
+import Data.Text (Text)
 
 import Database.SparkT.AST.Database
 import Database.SparkT.AST.SQL
 import Database.SparkT.AST.Error
 import Database.SparkT.Executor.Context
+import Database.SparkT.Executor.Expression
 
-data EType = EString | EInt | EBool | EDouble
-  deriving (Show, Eq)
 
-mapEtype :: TypeRep -> EType
-mapEtype dt | dt == typeOf (1::Int) = EInt
-            | dt == typeOf (1::Integer) = EInt
-            | dt == typeOf (True::Bool) = EBool
-            | dt == typeOf (1.0::Double) = EDouble
-
--- Context for typechecking and execution
-type ContextTE m = Context m String Value EType
-
-executeInsert :: Insert (ContextTE m)
-              -> ExceptT (Error String String) m (ContextTE m)
-executeInsert = undefined
-
-executeSelect :: Monad m -- TODO: understand why constraining with a MonadError breaks the tests
+executeSelect :: (MonadError (Error String String) m, Show (Row m String Value EType)) -- TODO: why is this show needed?
               => Select (ContextTE m)
               -> ExceptT (Error String String) m (Frame m String Value EType)
 executeSelect = evalS
 
 
+-- Select ----------------------------------------------------------------------
 evalS (Select table ordering limit offset) = do
   frame <- evalST table
   -- TODO: ordering
@@ -51,26 +39,44 @@ evalS (Select table ordering limit offset) = do
   where
     applyRepr f frame = return $ L.map (\row -> row { rRepr = liftM f (rRepr row) }) frame
 
-evalST (SelectTable (ProjExprs [(ExpressionFieldName (UnqualifiedField "*"), Nothing)])
+
+-- SelectTable -----------------------------------------------------------------
+evalST (SelectTable (ProjExprs projs)
                     mFrom Nothing Nothing Nothing) = do
-  frame <- case mFrom of Just from -> evalF from
-                         Nothing -> return ([] :: Frame m String Value EType)
-  return frame
+  (scope, frame) <- case mFrom of Just from -> evalF from
+                                  Nothing -> return ("", [] :: Frame m String Value EType)
+  frame' <- makeProjection frame projs
+  return frame'
 evalST _ = throwError $ ExecutorNotImplementedError "evalST" "SelectTable"
 
+-- makeProjection :: MonadError (Error String String) m10 => Frame m String Value EType -> [(Expression t, Maybe Text)] -> ExceptT
+--                     (Error String String) m10 (Frame m String Value EType)
+makeProjection _ [] = return []
+makeProjection frame ((expr, asM):projs) = do
+  rows <- makeProjection frame projs
+  case expr of
+    ExpressionFieldName (UnqualifiedField "*") ->
+      if isJust asM then throwError $ AliasOnStarProjectionError "evalF" "FromTable"
+                    else return $ frame ++ rows
+    ExpressionFieldName (QualifiedField scope "*") ->
+      if isJust asM then throwError $ AliasOnStarProjectionError "evalF" "FromTable"
+                    else return $ (L.filter (\r -> rScope r == toS scope) frame) ++ rows
+    _ -> do
+      row <- evalE frame expr
+      case asM of Just alias -> return (row { rName = toS alias }:rows)
+                  Nothing -> return (row:rows)
+
+-- FromTable -------------------------------------------------------------------
 evalF (FromTable source mScope) = do
-  frame <- evalTS source
-  -- TODO: add scope if exists
-  return frame
+  (scope, frame) <- evalTS source
+  case mScope of Nothing -> return (scope, frame)
+                 Just scope -> return (scope, L.map (\r -> r { rScope = toS scope }) frame)
 evalF _ = throwError $ ExecutorNotImplementedError "evalF" "FromTable"
 
+
+-- TableSource -----------------------------------------------------------------
 evalTS (TableNamed ctx name _) = do
   case M.lookup (toS name) ctx of
     Nothing -> throwError $ UnreferencedTableError (toS name) "algorithm error - should never happen"
-    Just fr -> return fr
+    Just fr -> return (name, fr)
 evalTS _ = throwError $ ExecutorNotImplementedError "evalF" "TableSource"
-
-evalE :: ContextTE m
-      -> Expression a
-      -> ExceptT (Error String String) m (Frame m String Value EType)
-evalE = undefined

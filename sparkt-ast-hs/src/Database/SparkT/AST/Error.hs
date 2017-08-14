@@ -10,6 +10,7 @@ data Error a b =
   | UnreferencedColumnError a b
   | AmbiguousColumnError a b
   | UnreferencedTableError a b
+  | AliasOnStarProjectionError a b
 
   | ExecutorNotImplementedError a b
   deriving (Show, Eq)
