@@ -14,6 +14,7 @@ import Data.Either
 
 import Database.SparkT.AST.Database
 import Database.SparkT.AST.SQL
+import Database.SparkT.AST.Error
 import Database.SparkT.Parser.SQL
 import Database.SparkT.Executor.Context
 import Database.SparkT.Executor.SQL
@@ -30,20 +31,23 @@ p = parse (parseSelect <* char ';') ""
 
 simpleCtx :: Monad m => Context m String Value EType
 simpleCtx =
-  fromList [("simpleDB",
-      fromList [("table1", Frame [("id", EInt, False),
-                                  ("name", EString, True)]
-                            (return $ L.map toV [(1, "Ut")
-                                                ,(2, "Resonare")
-                                                ,(3, "Mira")
-                                                ,(4, "Famuli")
-                                                ,(5, "Solve")
-                                                ,(6, "Labii")
-                                                ,(7, "Sancte")])
-                )]
-            )]
+  fromList [("table1", simpleFrame)]
 
+simpleFrame :: Monad m => Frame m String Value EType
+simpleFrame = makeFrame [("id", EInt, False), ("name", EString, True)]
+                            (L.map toV [(1, "Ut")
+                                       ,(2, "Resonare")
+                                       ,(3, "Mira")
+                                       ,(4, "Famuli")
+                                       ,(5, "Solve")
+                                       ,(6, "Labii")
+                                       ,(7, "Sancte")])
   where toV (i :: Integer, s :: String) = [Value i, Value s]
+
+makeFrame h v = make h (transpose v)
+  where make [] [] = []
+        make ((na, ty, nu):hs) (v:vs) = Row na "" ty nu (return v) : make hs vs
+        make _ _ = error "wrong input"
 
 contextualize :: Context m String Value EType -> Select () -> Select (Context m String Value EType)
 contextualize ctx select = fmap (\_ -> ctx) select
@@ -56,10 +60,22 @@ run = runIdentity . runExceptT
 simple :: TestTree
 simple = testGroup "A very simple example"
   [
-    testCase "Simple select with where clause" $
-      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name AS name0 FROM tables1 WHERE id>6;")))
-        @?= Right (Frame [("name0", EString, True)] (return [[Value ("Sancte"::String)]]))
+    testCase "No clause" $
+      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1;")))
+        @?= Right simpleFrame
+  , testCase "Limit clause" $
+      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1 LIMIT 2;")))
+        @?= Right (L.map (\r -> r { rRepr = (liftM $ take 2) $ rRepr r}) simpleFrame)
+  , testCase "Offset clause" $
+      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1 OFFSET 2;")))
+        @?= Right (L.map (\r -> r { rRepr = (liftM $ drop 2) $ rRepr r}) simpleFrame)
+  , testCase "Offset and limit clause" $
+      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1 LIMIT 2 OFFSET 2;")))
+        @?= Right (L.map (\r -> r { rRepr = (liftM $ take 2 . drop 2) $ rRepr r}) simpleFrame)
+  , testCase "Simple select with where clause" $
+      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name AS name0 FROM table1 WHERE id>6;")))
+        @?= Right [Row "name0" "" EString True (return [Value ("Sancte"::String)])]
   , testCase "This should not typecheck" $
-      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name+id FROM tables1;")))
-        @?= Left (ExpressionTypeMismatchError "Projection clause" EString EInt)
+      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name+id FROM table1;")))
+        @?= Left (ExpressionTypeMismatchError "Projection clause" $ L.concat [show EString, " vs ", show EInt])
   ]

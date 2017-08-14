@@ -51,7 +51,7 @@ instance (ToScalaExpr a, Show a, Ord a) => ToScalaExpr (DAG a) where
   toSE (DAG n v a) = classCtor SDAG [toSE n, toSE v, toSE a]
 
 -- From a list of ETLs create a DAG representation
-computeDAG :: (Ord a, MonadError (Error String) m) => String -> [Step a] -> m (DAG a)
+computeDAG :: (Ord a, MonadError (Error String String) m) => String -> [Step a] -> m (DAG a)
 computeDAG name steps = do
   (vertices, arcs) <- F.foldrM f (empty, empty) steps --
   catchCycle $ DAG name vertices arcs
@@ -65,8 +65,7 @@ computeDAG name steps = do
                           return (S.insert succ v,
                           S.insert (Arc (S.fromList preds) succ step) a)
       where
-        succ' = case process of Insert (Just info) _ _ _ _ -> Right $ Vertex info
-                                _ -> Left $ MissingContextError name "context missing"
+        succ' = case process of Insert info _ _ _ _ -> Right $ Vertex info
         preds = case process of
                   Insert _ _ _ _ values -> F.foldr (\mapping acc -> Vertex mapping : acc) [] values
     catchCycle dag =

@@ -3,11 +3,10 @@ module Database.SparkT.Test.Parser.Select ( tests ) where
 
 import Text.Parsec (parse, ParseError)
 import Text.Parsec.Char
+import Data.Either
 
 import Database.SparkT.AST.SQL
 import Database.SparkT.Parser.SQL
-
-import Data.Either
 
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -60,7 +59,7 @@ astEquivallence = testGroup "AST checks & equivallence"
              p "SELECT * FROM t;" @?=
                Right (Select
                  (SelectTable (ProjExprs [(ExpressionFieldName (UnqualifiedField "*"), n)])
-                              (Just (FromTable (TableNamed n "t" []) n)) n n n) [] n n)
+                              (Just (FromTable (TableNamed () "t" []) n)) n n n) [] n n)
   , testCase "Select equivallence" $
              p "SELECT '1' ys, max(t.x) AS maxX, CAST(someRow AS int) castResult FROM table t GROUP BY y;"
              @?=
