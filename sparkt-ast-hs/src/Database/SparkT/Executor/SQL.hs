@@ -22,7 +22,7 @@ import Database.SparkT.Executor.Context
 import Database.SparkT.Executor.Expression
 
 
-executeSelect :: (MonadError (Error String String) m, Show (Row m String Value EType)) -- TODO: why is this show needed?
+executeSelect :: (MonadError (Error String String) m, Show (Col m String Value EType))
               => Select (ContextTE m)
               -> ExceptT (Error String String) m (Frame m String Value EType)
 executeSelect = evalS
@@ -42,11 +42,26 @@ evalS (Select table ordering limit offset) = do
 
 -- SelectTable -----------------------------------------------------------------
 evalST (SelectTable (ProjExprs projs)
-                    mFrom Nothing Nothing Nothing) = do
-  (scope, frame) <- case mFrom of Just from -> evalF from
-                                  Nothing -> return ("", [] :: Frame m String Value EType)
-  frame' <- makeProjection frame projs
-  return frame'
+                    mFrom
+                    mWhere   -- where
+                    Nothing  -- grouping
+                    Nothing) = do
+  (scope, frameF) <- case mFrom of Just from -> evalF from
+                                   Nothing -> return ("", [] :: Frame m String Value EType)
+  frameW <- case mWhere of Nothing -> return frameF
+                           Just wher_ -> do
+                             rowCond <- evalE frameF wher_
+                             if rType rowCond == EBool
+                               then return $ applyWhere rowCond frameF
+                               else throwError $ ExpressionTypeMismatchError "Bool" ""
+  frameP <- makeProjection frameW projs
+  if isJust mFrom then return frameP -- TODO: can't truncate the frame at that level
+                  else return $ L.map (\row -> row { rRepr = liftM (take 1) (rRepr row) }) frameP
+  where
+    applyWhere :: Monad m => Col m i Value t -> Frame m i Value t -> Frame m i Value t
+    applyWhere rowB frame =
+      L.map (\row -> row { rRepr = liftM2 filterB (rRepr rowB) (rRepr row) }) frame
+    filterB lB l = L.map snd $ L.filter (forceAsBool . fst) (zip lB l)
 evalST _ = throwError $ ExecutorNotImplementedError "evalST" "SelectTable"
 
 -- makeProjection :: MonadError (Error String String) m10 => Frame m String Value EType -> [(Expression t, Maybe Text)] -> ExceptT

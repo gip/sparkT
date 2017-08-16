@@ -46,7 +46,7 @@ simpleFrame = makeFrame [("id", EInt, False), ("name", EString, True)]
 
 makeFrame h v = make h (transpose v)
   where make [] [] = []
-        make ((na, ty, nu):hs) (v:vs) = Row na "" ty nu (return v) : make hs vs
+        make ((na, ty, nu):hs) (v:vs) = Col na "" ty nu (return v) : make hs vs
         make _ _ = error "wrong input"
 
 contextualize :: Context m String Value EType -> Select () -> Select (Context m String Value EType)
@@ -56,10 +56,16 @@ fromRight (Right a) = a
 
 run = join . runExceptT
 
+runDF a = join $ mapM dataFrame $ run a
+
 simple :: TestTree
 simple = testGroup "A very simple example"
   [
-    testCase "No clause" $
+    testCase "No from clause" $
+    run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT 1+2;")))
+      @?= Right [Col "?" "" EInt False (return [Value (3::Integer)])]
+
+  , testCase "Only a from clause" $
       run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1;")))
         @?= Right simpleFrame
 
@@ -73,18 +79,23 @@ simple = testGroup "A very simple example"
 
   , testCase "Offset and limit clause" $
       run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT * FROM table1 LIMIT 1 OFFSET 5;")))
-        @?= Right [Row "id" "" EInt False (return [Value (6::Integer)]),
-                   Row "name" "" EString True (return [Value ("Labii"::String)])]
+        @?= Right [Col "id" "" EInt False (return [Value (6::Integer)]),
+                   Col "name" "" EString True (return [Value ("Labii"::String)])]
 
   , testCase "Simple projection" $
       run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT id FROM table1 OFFSET 5;")))
-        @?= Right [Row "id" "" EInt False (return [Value (6::Integer), Value (7::Integer)])]
+        @?= Right [Col "id" "" EInt False (return [Value (6::Integer), Value (7::Integer)])]
 
-  -- , testCase "Simple select with where clause" $
-  --     run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name AS name0 FROM table1 WHERE id>6;")))
-  --       @?= Right [Row "name0" "" EString True (return [Value ("Labii"::String)])]
-  --
-  -- , testCase "This should not typecheck" $
-  --     run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name+id FROM table1;")))
-  --       @?= Left (ExpressionTypeMismatchError "Projection clause" $ L.concat [show EString, " vs ", show EInt])
+  , testCase "Complex projection" $
+      runDF (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT 0 ZERO, id+id*2 newcol FROM table1 OFFSET 5;")))
+        @?= Right (DataFrame [("ZERO","",EInt,False),("newcol","",EInt,False)]
+                             (return [[Value (0::Integer),Value (0::Integer)],[Value (18::Integer),Value (21::Integer)]]) )
+
+  , testCase "Simple select with where clause" $
+      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name AS name0 FROM table1 WHERE id=6;")))
+        @?= Right [Col "name0" "" EString True (return [Value ("Labii"::String)])]
+
+  , testCase "This should not typecheck" $
+      run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name+id FROM table1;")))
+        @?= Left (ExpressionTypeMismatchError "EString" "EInt")
   ]

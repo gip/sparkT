@@ -13,4 +13,5 @@ data Error a b =
   | AliasOnStarProjectionError a b
 
   | ExecutorNotImplementedError a b
+  | ExecutorUnknownTypeError a b  
   deriving (Show, Eq)
