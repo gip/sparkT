@@ -1,20 +1,24 @@
-dependencies:
-  cache_directories:
-    - "~/.stack"
-  working_directory: ~/sparkt-ast-hs
-  pre:
-    - wget https://github.com/commercialhaskell/stack/releases/download/v1.4.0/stack-1.4.0-linux-x86_64.tar.gz -O /tmp/stack.tar.gz
-    - mkdir /tmp/stack/
-    - tar -xvzf /tmp/stack.tar.gz -C /tmp/stack/
-    - sudo mv /tmp/stack/stack-1.4.0-linux-x86_64/stack /usr/bin/stack
-  override:
-    - stack setup --no-terminal
-    - stack build --no-system-ghc --only-configure --no-terminal
+version: 2
+jobs:
+  build:
+    working_directory: ~/sparkt-ast-hs
+    machine: true
+    steps:
+      - checkout
 
-compile:
-  override:
-    - stack build --no-terminal
+      - restore_cache:
+          key: cache
 
-test:
-  override:
-    - stack test --no-terminal
+      - run: wget https://github.com/commercialhaskell/stack/releases/download/v1.5.1/stack-1.5.1-freebsd-x86_64.tar.gz -O /tmp/stack.gz
+      - run: gunzip /tmp/stack.gz && chmod +x /tmp/stack
+      - run: sudo mv /tmp/stack /usr/bin/stack      
+      - run: stack setup
+      - run: stack build --fast
+
+      - save_cache:
+          paths:
+            - ~/.stack
+          key: cache
+
+      - run: stack test --no-terminal --coverage
+      - run: stack exec -- shc --repo-token=$COVERALLS_REPO_TOKEN Uthenga uthenga-test
