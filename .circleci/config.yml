@@ -1,7 +1,7 @@
 version: 2
 jobs:
   build:
-    working_directory: ~/sparkt-ast-hs
+    working_directory: ~/sparkt
     docker:
       - image: circleci/openjdk:8
     steps:
@@ -10,16 +10,19 @@ jobs:
       - restore_cache:
           key: cache
 
-      - run: wget https://github.com/commercialhaskell/stack/releases/download/v1.5.1/stack-1.5.1-freebsd-x86_64.tar.gz -O /tmp/stack.gz
-      - run: gunzip /tmp/stack.gz && chmod +x /tmp/stack
-      - run: sudo mv /tmp/stack /usr/bin/stack      
-      - run: stack setup
-      - run: stack build --fast
+      - run: wget https://github.com/commercialhaskell/stack/releases/download/v1.5.1/stack-1.5.1-linux-x86_64.tar.gz -O ~/stack.tar.gz
+      - run: tar xvf ~/stack.tar.gz -C ~/
+      - run: chmod +x ~/stack-1.5.1-linux-x86_64/stack
+      - run: sudo mv ~/stack-1.5.1-linux-x86_64/stack /usr/bin/stack
+      - run: sudo apt-get install make
+      - run: sudo apt-get install gcc
+      - run: sudo apt-get install libgmp-dev
+      - run: cd ~/sparkt/sparkt-fe-beam-example && stack setup
+      - run: cd ~/sparkt/sparkt-fe-beam-example && stack build --fast
 
       - save_cache:
           paths:
             - ~/.stack
           key: cache
 
-      - run: stack test --no-terminal --coverage
-      - run: stack exec -- shc --repo-token=$COVERALLS_REPO_TOKEN Uthenga uthenga-test
+      - run: cd ~/sparkt/sparkt-fe-beam-example && stack test --no-terminal --coverage
