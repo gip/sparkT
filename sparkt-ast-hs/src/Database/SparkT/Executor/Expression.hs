@@ -48,8 +48,8 @@ unify frame lhs rhs = do
     then return (rType rLhs, rLhs, rRhs)
     else throwError $ ExpressionTypeMismatchError (show $ rType rLhs) (show $ rType rRhs)
 
-zipCol f (Col _ s0 t0 n0 r0)
-         (Col _ s1 t1 n1 r1) = return $ Col "?" "" t0 n0 (liftM2 (zipWith f) r0 r1)
+zipCol f (Col _ s0 t0 n0 _ r0)
+         (Col _ s1 t1 n1 _ r1) = return $ Col "?" "" t0 (n0 || n1) Nothing (liftM2 (zipWith f) r0 r1)
 
 evalE frame (ExpressionBinOp op eLhs eRhs) = do
   (t, lhs, rhs) <- unify frame eLhs eRhs
@@ -67,11 +67,22 @@ evalE frame (ExpressionBinOp op eLhs eRhs) = do
 evalE frame (ExpressionCompOp op _ eLhs eRhs) = do
   (t, lhs, rhs) <- unify frame eLhs eRhs
   case op of
-    "=" -> return $ Col "?" "" EBool (rNullable lhs || rNullable rhs) (liftM2 (zipWith (\v w -> Value (v == w))) (rRepr lhs) (rRepr rhs))
+    "=" -> doComp (==) lhs rhs
+    "<=" -> doComp (<=) lhs rhs
+    "<" -> doComp (<) lhs rhs
+    ">=" -> doComp (>=) lhs rhs
+    ">" -> doComp (>) lhs rhs
+    "<>" -> doComp (/=) lhs rhs
+  where
+    doComp f lhs rhs =
+      return $ Col "?" "" EBool
+                          (rNullable lhs || rNullable rhs)
+                          Nothing
+                          (liftM2 (zipWith (\v w -> Value (f v w))) (rRepr lhs) (rRepr rhs))
 
 evalE _ (ExpressionValue v) = do
   i <- (getAsInt v >> return True) `catchError` (\_ -> return False)
-  if i then return $ Col "" "" EInt False (return $ L.repeat v)
+  if i then return $ Col "" "" EInt False (Just v) (return $ L.repeat v)
        else throwError $ ExecutorUnknownTypeError "" ""
 
 evalE frame (ExpressionFieldName (QualifiedField scope name)) =

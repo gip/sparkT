@@ -2,7 +2,8 @@ version: 2
 jobs:
   build:
     working_directory: ~/sparkt-ast-hs
-    machine: true
+    docker:
+      - image: circleci/openjdk:8
     steps:
       - checkout
 

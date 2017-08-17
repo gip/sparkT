@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric, GADTs, FlexibleContexts, OverloadedStrings,
              UndecidableInstances, TypeSynonymInstances, FlexibleInstances,
-             ScopedTypeVariables, DeriveFoldable, DeriveTraversable #-}
+             ScopedTypeVariables, DeriveFoldable, DeriveTraversable,
+             AllowAmbiguousTypes #-}
 module Database.SparkT.AST.SQL where
 
 import Prelude hiding (Ordering)
@@ -312,7 +313,7 @@ instance (ToScalaExpr (Expression a),
   toSE (OuterJoin fa fb e) = classCtor SOuterJoin [toSE fa, toSE fb, toSE e]
 
 data Value where
-  Value :: (Show a, Eq a, Typeable a) => a -> Value
+  Value :: (Show a, Eq a, Ord a, Typeable a) => a -> Value
 
 -- TODO: the code below is ugly, is there any other concise way to write that code?
 instance ToScalaExpr Value where
@@ -335,13 +336,19 @@ instance ToScalaExpr Value where
                                            Nothing -> Nothing
 -- Special SQL value null
 data Null = Null
-  deriving (Show, Eq, Typeable)
+  deriving (Show, Eq, Ord, Typeable)
 
 instance Eq Value where
   Value a == Value b =
     case cast a of
       Just a' -> a' == b
-      Nothing -> False
+      Nothing -> False -- TODO: that should not happen
+
+instance Ord Value where
+  Value a <= Value b =
+    case cast a of
+      Just a' -> a' <= b
+      Nothing -> error "wrong dynamic cast"
 
 instance Show Value where
   showsPrec prec (Value a) =

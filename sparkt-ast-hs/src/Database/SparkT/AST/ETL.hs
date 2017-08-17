@@ -51,7 +51,7 @@ instance (ToScalaExpr a, Show a, Ord a) => ToScalaExpr (DAG a) where
   toSE (DAG n v a) = classCtor SDAG [toSE n, toSE v, toSE a]
 
 -- From a list of ETLs create a DAG representation
-computeDAG :: (Ord a, MonadError (Error String String) m) => String -> [Step a] -> m (DAG a)
+computeDAG :: (Ord a) => String -> [Step a] -> Either (Error String String) (DAG a)
 computeDAG name steps = do
   (vertices, arcs) <- F.foldrM f (empty, empty) steps --
   catchCycle $ DAG name vertices arcs

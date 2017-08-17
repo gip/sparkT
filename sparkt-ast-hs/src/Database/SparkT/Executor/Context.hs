@@ -28,6 +28,7 @@ data Col m i r t = Col { rName      :: i,        -- colomn name
                          rScope     :: i,        -- scope
                          rType      :: t,        -- type
                          rNullable  :: Bool,     -- nullable
+                         rImm       :: Maybe r,  -- immediate value?
                          rRepr      :: m [r] }   -- representation
 
 -- Frame -----------------------------------------------------------------------
@@ -35,14 +36,14 @@ data Col m i r t = Col { rName      :: i,        -- colomn name
 type Frame m i r t = [Col m i r t]
 
 instance (Eq i, Eq t, Eq r, Eq (m e [r])) => Eq (Col (m e) i r t) where
-  (==) (Col i s t b r) (Col i' s' t' b' r') =
+  (==) (Col i s t b _ r) (Col i' s' t' b' _ r') =
     (==) (i,s,t,b,r) (i',s',t',b',r')
 
 instance (Show i, Show r, Show t, Show (m e [r])) => Show (Col (m e) i r t) where -- TODO: better!
-  show (Col i s t b r) = concat ["Col ", show i, " ",
-                                         show s, " ",
-                                         show t, " ",
-                                         show b, " ", show r]
+  show (Col i s t b _ r) = concat ["Col ", show i, " ",
+                                           show s, " ",
+                                           show t, " ",
+                                           show b, " ", show r]
 
 -- DataFrame -------------------------------------------------------------------
 data DataFrame m i r t = DataFrame [(i, i, t, Bool)] (m [[r]])
@@ -60,9 +61,9 @@ dataFrame frame = do
   l <- sequence $ L.map rRepr frame
   return $ DataFrame types (return $ L.map (take (doit l 10)) l)
   where
-    types = L.map (\(Col i s t n _) -> (i, s, t, n)) frame
+    types = L.map (\(Col i s t n _ _) -> (i, s, t, n)) frame
     doit l n =
-      let n' = minimum (L.map length (return $ L.map (take n) l)) in
+      let n' = minimum (L.map length (L.map (take n) l)) in
       if n' < n
         then n'
         else doit l (n*2)
@@ -74,7 +75,7 @@ type Context m i r t = Map i                  -- Table name
 getColumn :: (Eq i, Show i, MonadError (Error i String) m1)
           => Frame m i r t -> i -> Maybe i -> ExceptT (Error i String) m1 (Col m i r t)
 getColumn fr name scope =
-  case filteri (\(Col n s _ _ _) -> n == name && scopeMatch scope s) fr of
+  case filteri (\(Col n s _ _ _ _) -> n == name && scopeMatch scope s) fr of
     [] -> throwError $ UnreferencedColumnError name ""
     [(i,c)] -> return $ c
     cs -> throwError $ AmbiguousColumnError name "found in multiple scopes"
@@ -82,7 +83,7 @@ getColumn fr name scope =
     scopeMatch Nothing s = True
     scopeMatch (Just scope) s = scope==s
 
-getColumnType (Col _ _ t _ _) = t
+getColumnType (Col _ _ t _ _ _) = t
 
 -- Context specialized used for typechecking and execution
 type ContextTE m = Context m String Value EType

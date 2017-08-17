@@ -11,7 +11,10 @@ data Error a b =
   | AmbiguousColumnError a b
   | UnreferencedTableError a b
   | AliasOnStarProjectionError a b
+  | NonIntegerConstantGroupByError a b
+  | PositionNotInListGroupByError a b
 
   | ExecutorNotImplementedError a b
-  | ExecutorUnknownTypeError a b  
+  | ExecutorUnknownTypeError a b
+
   deriving (Show, Eq)

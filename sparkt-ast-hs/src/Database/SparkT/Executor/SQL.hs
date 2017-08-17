@@ -10,7 +10,7 @@ import Control.Monad.Except
 
 import Data.Typeable
 import Data.String.Conv
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromMaybe)
 import Data.Map as M
 import Data.List as L
 import Data.Text (Text)
@@ -31,20 +31,29 @@ executeSelect = evalS
 -- Select ----------------------------------------------------------------------
 evalS (Select table ordering limit offset) = do
   frame <- evalST table
-  -- TODO: ordering
-  withOffset <- case offset of Nothing -> return frame
-                               Just off -> applyRepr (drop $ fromIntegral off) frame
-  case limit of Nothing -> return withOffset
-                Just lim -> applyRepr (take $ fromIntegral lim) withOffset
+  -- TODO: fix ordering - it doesn't really work in case there is more than one ordering
+  ordExpr <- mapM (orderBy frame) ordering
+  let frameOrd = applyOrderBy ordExpr frame
+  frameOff <- case offset of Nothing -> return frameOrd
+                             Just off -> applyRepr (drop $ fromIntegral off) frameOrd
+  case limit of Nothing -> return frameOff
+                Just lim -> applyRepr (take $ fromIntegral lim) frameOff
   where
     applyRepr f frame = return $ L.map (\row -> row { rRepr = liftM f (rRepr row) }) frame
-
+    orderBy frame (OrderingAsc e) = evalE frame e >>= \c -> return (True, c)
+    orderBy frame (OrderingDesc e) = evalE frame e >>= \c -> return (False, c)
+    applyOrderBy1 asc rowBy row =
+      row { rRepr = liftM2 sortIt (rRepr rowBy) (rRepr row) }
+      where sortIt a b = L.map snd $ sortBy (\a0 b0 -> if asc then compare (fst a0) (fst b0)
+                                                              else compare (fst b0) (fst a0)) (zip a b)
+    applyOrderBy frameBy frame =
+      L.foldr (\(asc, rowBy) fr -> L.map (applyOrderBy1 asc rowBy) fr) frame frameBy
 
 -- SelectTable -----------------------------------------------------------------
 evalST (SelectTable (ProjExprs projs)
                     mFrom
                     mWhere   -- where
-                    Nothing  -- grouping
+                    mGroupBy -- grouping
                     Nothing) = do
   (scope, frameF) <- case mFrom of Just from -> evalF from
                                    Nothing -> return ("", [] :: Frame m String Value EType)
@@ -54,14 +63,30 @@ evalST (SelectTable (ProjExprs projs)
                              if rType rowCond == EBool
                                then return $ applyWhere rowCond frameF
                                else throwError $ ExpressionTypeMismatchError "Bool" ""
-  frameP <- makeProjection frameW projs
-  if isJust mFrom then return frameP -- TODO: can't truncate the frame at that level
+  frameGB <- case mGroupBy of Nothing -> return frameW
+                              Just (Grouping exprs) -> do
+                                groupCols <- mapM (groupByCol frameW) exprs
+                                -- TODO: it's actually a bit complicated :)
+                                throwError $ ExecutorNotImplementedError "GROUP BY" ""
+                                return frameW -- TODO
+  frameP <- makeProjection frameGB projs
+  if isJust mFrom then return frameP -- Can't truncate columns here so some may be infinite lists
                   else return $ L.map (\row -> row { rRepr = liftM (take 1) (rRepr row) }) frameP
   where
     applyWhere :: Monad m => Col m i Value t -> Frame m i Value t -> Frame m i Value t
     applyWhere rowB frame =
       L.map (\row -> row { rRepr = liftM2 filterB (rRepr rowB) (rRepr row) }) frame
     filterB lB l = L.map snd $ L.filter (forceAsBool . fst) (zip lB l)
+    groupByCol frame expr = do
+      colGroup <- evalE frame expr
+      case rImm colGroup of Just v ->
+                              do ii <- getAsInt v
+                                 let i = fromIntegral ii
+                                 if i>0 && i<= length frame
+                                   then return $ frame !! i
+                                   else throwError $ PositionNotInListGroupByError "evalST" (show i)
+                            Nothing -> throwError $ NonIntegerConstantGroupByError "evalST" ""
+
 evalST _ = throwError $ ExecutorNotImplementedError "evalST" "SelectTable"
 
 -- makeProjection :: MonadError (Error String String) m10 => Frame m String Value EType -> [(Expression t, Maybe Text)] -> ExceptT
@@ -78,14 +103,14 @@ makeProjection frame ((expr, asM):projs) = do
                     else return $ (L.filter (\r -> rScope r == toS scope) frame) ++ rows
     _ -> do
       row <- evalE frame expr
-      case asM of Just alias -> return (row { rName = toS alias }:rows)
+      case asM of Just alias -> return (row { rScope= "", rName = toS alias }:rows)
                   Nothing -> return (row:rows)
 
 -- FromTable -------------------------------------------------------------------
 evalF (FromTable source mScope) = do
-  (scope, frame) <- evalTS source
-  case mScope of Nothing -> return (scope, frame)
-                 Just scope -> return (scope, L.map (\r -> r { rScope = toS scope }) frame)
+  (scope0, frame) <- evalTS source
+  let scope = fromMaybe scope0 mScope
+  return $ (scope, L.map (\r -> r { rScope = toS scope }) frame)
 evalF _ = throwError $ ExecutorNotImplementedError "evalF" "FromTable"
 
 
