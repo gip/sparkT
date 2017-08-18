@@ -148,5 +148,5 @@ simple = testGroup "Simple queries"
           @?= Right (DataFrame [("name","table1",EString,True),("score","table1",EDouble,False),("id","table1",EInt,False)]
                               (return [[valueS "Do",valueS "Fa",valueS "Fa",valueS "Fa",valueS "Re",valueS "Re",valueS "Si"],
                                        [valueD 344.67,valueD 0.1,valueD 0.1,valueD 9.8,valueD 0.1,valueD 23.01,valueD 4.0],
-                                       [valueI 1,valueI 4,valueI 6,valueI 5,valueI 3,valueI 2,valueI 8]]))
+                                       [valueI 1,valueI 4,valueI 6,valueI 5,valueI 3,valueI 2,valueI 7]]))
   ]
