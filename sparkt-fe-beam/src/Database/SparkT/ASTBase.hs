@@ -174,7 +174,7 @@ instance IsSql92FromSyntax (From a) where
   leftJoin = LeftJoin
   rightJoin = RightJoin
 
-instance (Show a, Eq a, Typeable a) => HasSqlValueSyntax Value a where
+instance (Show a, Eq a, Ord a, Typeable a) => HasSqlValueSyntax Value a where
   sqlValueSyntax = Value
 
 instance Eq a => HasQBuilder (Select a) where

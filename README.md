@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/gip/sparkt.svg?style=shield)](https://circleci.com/gh/gip/sparkt)
+
 # SparkT
 
      ____                   _    _____
