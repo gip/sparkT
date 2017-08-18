@@ -29,7 +29,7 @@ type ProjectibleInSelectSyntax syntax a =
 
 data QF select (db :: (* -> *) -> *) s next where
   QAll :: Beamable table
-       => Maybe (InstanceInfo db)
+       => InstanceInfo db
        -> T.Text -> TableSettings table
        -> (table (QExpr (Sql92SelectExpressionSyntax select) s) -> Maybe (Sql92SelectExpressionSyntax select))
        -> (table (QExpr (Sql92SelectExpressionSyntax select) s) -> next) -> QF select db s next

@@ -399,7 +399,7 @@ buildSql92Query' arbitrarilyNestedCombinations (Q q) =
         in buildJoinedQuery (next newTbl) qb'
           where
             buildInnerJoinQuery :: forall table. (Beamable table)
-              => Maybe (InstanceInfo db) -> T.Text -> TableSettings table
+              => InstanceInfo db -> T.Text -> TableSettings table
               -> (table (QExpr (Sql92SelectExpressionSyntax select) s) -> Maybe (Sql92SelectExpressionSyntax select))
               -> QueryBuilder select -> (table (QExpr (Sql92SelectExpressionSyntax select) s), QueryBuilder select)
             buildInnerJoinQuery instInfo tbl tblSettings mkOn qb =

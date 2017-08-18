@@ -34,6 +34,9 @@ tests = testGroup "Schema Tests"
 --                  , dbSchemaGeneration ]
 --                  , dbSchemaModification ]
 
+instance FieldType UTCTime
+instance FieldType (Auto UTCTime)
+
 data DummyBackend
 instance BeamBackend DummyBackend
 

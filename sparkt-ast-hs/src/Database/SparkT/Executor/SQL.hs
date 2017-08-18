@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, OverloadedStrings, ScopedTypeVariables #-}
 module Database.SparkT.Executor.SQL (
       executeSelect
     , EType(..)
@@ -14,6 +14,7 @@ import Data.Maybe (isJust, fromMaybe)
 import Data.Map as M
 import Data.List as L
 import Data.Text (Text)
+import Data.Ord as Ord
 
 import Database.SparkT.AST.Database
 import Database.SparkT.AST.SQL
@@ -22,7 +23,9 @@ import Database.SparkT.Executor.Context
 import Database.SparkT.Executor.Expression
 
 
-executeSelect :: (MonadError (Error String String) m, Show (Col m String Value EType))
+import System.IO.Unsafe
+
+executeSelect :: forall m. (MonadError (Error String String) m, Show (Col m String Value EType))
               => Select (ContextTE m)
               -> ExceptT (Error String String) m (Frame m String Value EType)
 executeSelect = evalS
@@ -30,24 +33,37 @@ executeSelect = evalS
 
 -- Select ----------------------------------------------------------------------
 evalS (Select table ordering limit offset) = do
-  frame <- evalST table
+  (frame, frame0) <- evalST table
   -- TODO: fix ordering - it doesn't really work in case there is more than one ordering
-  ordExpr <- mapM (orderBy frame) ordering
-  let frameOrd = applyOrderBy ordExpr frame
+  frameOrd <- if L.null ordering then return frame
+                                 else do ordExpr <- mapM (orderBy frame0) ordering
+                                         return $ applyOrderBy ordExpr frame
   frameOff <- case offset of Nothing -> return frameOrd
                              Just off -> applyRepr (drop $ fromIntegral off) frameOrd
   case limit of Nothing -> return frameOff
                 Just lim -> applyRepr (take $ fromIntegral lim) frameOff
   where
     applyRepr f frame = return $ L.map (\row -> row { rRepr = liftM f (rRepr row) }) frame
-    orderBy frame (OrderingAsc e) = evalE frame e >>= \c -> return (True, c)
-    orderBy frame (OrderingDesc e) = evalE frame e >>= \c -> return (False, c)
-    applyOrderBy1 asc rowBy row =
-      row { rRepr = liftM2 sortIt (rRepr rowBy) (rRepr row) }
-      where sortIt a b = L.map snd $ sortBy (\a0 b0 -> if asc then compare (fst a0) (fst b0)
-                                                              else compare (fst b0) (fst a0)) (zip a b)
+    orderBy frame (OrderingAsc e) = evalE frame e >>= \col -> return (True, col)
+    orderBy frame (OrderingDesc e) = evalE frame e >>= \col -> return (False, col)
+    applyOrderBy1 frameBy col =
+      col { rRepr = liftM2 sortIt colBy (rRepr col) }
+      where
+        f :: Monad m => (Bool, Col m i r t) -> m [(Bool, r)]
+        f (b, col) = rRepr col >>= \repr -> return $ L.map ((,) b) repr
+        -- colBy :: m [[(Bool, Value)]]
+        colBy = liftM transpose $ sequence $ L.map f frameBy
+        compareIt :: ([(Bool, Value)], Value) -> ([(Bool, Value)], Value) -> Ord.Ordering
+        compareIt ([(ascLhs, vLhs)], _) ([(ascRhs, vRhs)], _) =
+          if ascLhs then compare vLhs vRhs else compare vRhs vLhs
+        compareIt ((ascLhs, vLhs):rLhs, dataLhs) ((ascRhs, vRhs):rRhs, dataRhs) =
+          case if ascLhs then compare vLhs vRhs else compare vRhs vLhs of
+            EQ -> compareIt (rLhs, dataLhs) (rRhs, dataRhs)
+            order -> order
+        sortIt :: [[(Bool, Value)]] -> [Value] -> [Value]
+        sortIt a b = L.map snd $ sortBy compareIt (zip a b)
     applyOrderBy frameBy frame =
-      L.foldr (\(asc, rowBy) fr -> L.map (applyOrderBy1 asc rowBy) fr) frame frameBy
+      L.map (applyOrderBy1 frameBy) frame
 
 -- SelectTable -----------------------------------------------------------------
 evalST (SelectTable (ProjExprs projs)
@@ -70,9 +86,10 @@ evalST (SelectTable (ProjExprs projs)
                                 throwError $ ExecutorNotImplementedError "GROUP BY" ""
                                 return frameW -- TODO
   frameP <- makeProjection frameGB projs
-  if isJust mFrom then return frameP -- Can't truncate columns here so some may be infinite lists
-                  else return $ L.map (\row -> row { rRepr = liftM (take 1) (rRepr row) }) frameP
+  if isJust mFrom then return (frameP, frameGB) -- Can't truncate columns here so some may be infinite lists
+                  else return (truncFrame 1 frameP, truncFrame 1 frameGB)
   where
+    truncFrame n f = L.map (\row -> row { rRepr = liftM (take n) (rRepr row) }) f
     applyWhere :: Monad m => Col m i Value t -> Frame m i Value t -> Frame m i Value t
     applyWhere rowB frame =
       L.map (\row -> row { rRepr = liftM2 filterB (rRepr rowB) (rRepr row) }) frame

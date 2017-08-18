@@ -3,10 +3,11 @@
              ScopedTypeVariables, PartialTypeSignatures,
              MultiParamTypeClasses, RankNTypes, AllowAmbiguousTypes,
              OverloadedStrings #-}
-module Example.Databases where
+module Example.Schemata where
 
 import Data.Text (Text)
 import Data.String.Conv
+import Data.Typeable
 
 import Database.Beam
 import Database.Beam.Backend.SQL
@@ -73,7 +74,7 @@ data FirstDb f = FirstDb {
 } deriving Generic
 instance Database FirstDb where
   type InstanceVersioned FirstDb = Versioned
-  type InstanceInfo FirstDb = DatabaseMapping
+  type InstanceInfo FirstDb = (DatabaseMapping TypeRep)
   instanceInfo (dbSettings, Versioned batch rev, tableName) =
     DatabaseMapping (toS tableName) S3 (CSV "|") (concat ["s3://myprefix/", dbName, "/batch_", batch, "/rev_", show rev, "/"]) schema
       where schema@(dbName, _) = dbSchema dbSettings
@@ -87,7 +88,7 @@ data SecondDb f = SecondDb {
 } deriving Generic
 instance Database SecondDb where
   type InstanceVersioned SecondDb = Versioned
-  type InstanceInfo SecondDb = DatabaseMapping
+  type InstanceInfo SecondDb = (DatabaseMapping TypeRep)
   instanceInfo (dbSettings, Versioned batch rev, tableName) =
     DatabaseMapping (toS tableName) S3 Parquet (concat ["s3://myprefix/", dbName, "/batch_", batch, "/rev_", show rev, "/"]) schema
       where schema@(dbName, _) = dbSchema dbSettings

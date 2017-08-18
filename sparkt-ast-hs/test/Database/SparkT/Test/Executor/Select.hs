@@ -136,4 +136,17 @@ simple = testGroup "Simple queries"
                              (return [reverse [valueD 0.1,valueD 0.1,valueD 0.1,valueD 4.0,valueD 9.8,valueD 23.01,valueD 344.67],
                                               [valueI 1,valueI 2,valueI 5,valueI 7,valueI 3,valueI 4,valueI 6]]) )
 
+    , testCase "Order by asc and then desc" $
+        runDF (executeSelect (contextualize easyCtx $ fromRight (p "SELECT name, score, id FROM table1 ORDER BY name ASC, score DESC;")))
+          @?= Right (DataFrame [("name","table1",EString,True),("score","table1",EDouble,False),("id","table1",EInt,False)]
+                              (return [[valueS "Do",valueS "Fa",valueS "Fa",valueS "Fa",valueS "Re",valueS "Re",valueS "Si"],
+                                       [valueD 344.67,valueD 9.8,valueD 0.1,valueD 0.1,valueD 23.01,valueD 0.1,valueD 4.0],
+                                       [valueI 1,valueI 5,valueI 4,valueI 6,valueI 2,valueI 3,valueI 7]]))
+
+    , testCase "Order by asc and then asc" $
+        runDF (executeSelect (contextualize easyCtx $ fromRight (p "SELECT name, score, id FROM table1 ORDER BY name ASC, score ASC;")))
+          @?= Right (DataFrame [("name","table1",EString,True),("score","table1",EDouble,False),("id","table1",EInt,False)]
+                              (return [[valueS "Do",valueS "Fa",valueS "Fa",valueS "Fa",valueS "Re",valueS "Re",valueS "Si"],
+                                       [valueD 344.67,valueD 0.1,valueD 0.1,valueD 9.8,valueD 0.1,valueD 23.01,valueD 4.0],
+                                       [valueI 1,valueI 4,valueI 6,valueI 5,valueI 3,valueI 2,valueI 7]]))
   ]
