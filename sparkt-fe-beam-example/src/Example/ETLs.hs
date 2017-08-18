@@ -5,19 +5,19 @@
              OverloadedStrings #-}
 module Example.ETLs where
 
+import Data.Text (Text)
+import Data.Typeable
+
 import Database.Beam
 import Database.Beam.Backend.SQL
-import Database.SparkT.AST as AST
+import Database.Beam.Backend.SQL.Builder
 
+import Database.SparkT.AST as AST
 import Database.SparkT.AST.Protocol
 import Database.SparkT.AST.Database
 import Database.SparkT.AST.ETL
 
-import Database.Beam.Backend.SQL.Builder
-
-import Data.Text (Text)
-
-import Example.Databases
+import Example.Schemata
 
 downsample :: (Sql92SelectSanityCheck syntax, IsSql92SelectSyntax syntax,
                IsSqlExpressionSyntaxStringType (Sql92SelectTableExpressionSyntax (Sql92SelectSelectTableSyntax syntax)) Text,
@@ -32,15 +32,15 @@ downsample tbl =
      return rows {model_attr_data_score = model_attr_data_score rows * 0.778899 + 1}
 
 
-instance IsSqlExpressionSyntaxStringType (Expression DatabaseMapping) Text
+instance IsSqlExpressionSyntaxStringType (Expression (DatabaseMapping TypeRep)) Text
 
-command :: Versioned -> ProcessingStep DatabaseMapping
-command versioned = ProcessingStep "DownsizingModel" etl
+downsampleStep :: Versioned -> Step (DatabaseMapping TypeRep)
+downsampleStep versioned = Step "downsampleStep" etl
   where
-    etl :: Insert DatabaseMapping
+    etl :: Insert (DatabaseMapping TypeRep)
     etl = astInsert
       where
-        astInsert' :: SqlInsert (AST.Insert DatabaseMapping)
+        astInsert' :: SqlInsert (AST.Insert (DatabaseMapping TypeRep))
         astInsert' = tInsert versioned _secondDbModelAttr secondDb
                        $ insertFrom
                          $ select

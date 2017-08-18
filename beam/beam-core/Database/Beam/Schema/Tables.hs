@@ -33,7 +33,7 @@ module Database.Beam.Schema.Tables
     , Columnar, C, Columnar'(..)
     , Nullable, TableField(..)
     , Exposed
-    , fieldName
+    , FieldType, fieldName
 
     , TableSettings, TableSkeleton, Ignored(..)
     , GFieldsFulfillConstraint(..), FieldsFulfillConstraint, WithConstraint(..)

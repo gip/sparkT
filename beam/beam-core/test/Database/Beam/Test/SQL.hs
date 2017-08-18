@@ -56,7 +56,7 @@ simpleSelect =
      selectOffset @?= Nothing
      selectHaving @?= Nothing
 
-     Just (FromTable (TableNamed "employees") (Just tblName)) <- pure selectFrom
+     Just (FromTable (TableNamed "_employees") (Just tblName)) <- pure selectFrom
 
      selectProjection @?= ProjExprs [ (ExpressionFieldName (QualifiedField tblName "first_name"), Just "res0")
                                     , (ExpressionFieldName (QualifiedField tblName "last_name"), Just "res1")
@@ -85,7 +85,7 @@ simpleWhere =
      selectOffset @?= Nothing
      selectHaving @?= Nothing
 
-     Just (FromTable (TableNamed "employees") (Just employees)) <- pure selectFrom
+     Just (FromTable (TableNamed "_employees") (Just employees)) <- pure selectFrom
 
      let salaryCond = ExpressionCompOp ">" Nothing (ExpressionFieldName (QualifiedField employees "salary")) (ExpressionValue (Value (120202 :: Double)))
          ageCond = ExpressionCompOp "<" Nothing (ExpressionFieldName (QualifiedField employees "age")) (ExpressionValue (Value (30 :: Int)))
@@ -111,8 +111,8 @@ simpleJoin =
      selectOffset @?= Nothing
      selectHaving @?= Nothing
 
-     Just (InnerJoin (FromTable (TableNamed "employees") (Just employees))
-                     (FromTable (TableNamed "roles") (Just roles))
+     Just (InnerJoin (FromTable (TableNamed "_employees") (Just employees))
+                     (FromTable (TableNamed "_roles") (Just roles))
                      Nothing) <- pure selectFrom
 
      selectProjection @?= ProjExprs [ ( ExpressionFieldName (QualifiedField employees "phone_number"), Just "res0" )
@@ -139,10 +139,10 @@ selfJoin =
      selectOffset @?= Nothing
      selectHaving @?= Nothing
 
-     Just (InnerJoin (InnerJoin (FromTable (TableNamed "employees") (Just e1))
-                                (FromTable (TableNamed "employees") (Just e2))
+     Just (InnerJoin (InnerJoin (FromTable (TableNamed "_employees") (Just e1))
+                                (FromTable (TableNamed "_employees") (Just e2))
                                 (Just joinCondition12))
-                     (FromTable (TableNamed "employees") (Just e3))
+                     (FromTable (TableNamed "_employees") (Just e3))
                      (Just joinCondition123)) <- pure selectFrom
 
      assertBool "Table names are not unique" (e1 /= e2 && e1 /= e3 && e2 /= e3)
@@ -163,8 +163,8 @@ leftJoin =
           e <- leftJoin_ (all_ (_employees employeeDbSettings)) (\e -> primaryKey e ==. _roleForEmployee r)
           pure (e, r)
 
-     Just (LeftJoin (FromTable (TableNamed "roles") (Just roles))
-                    (FromTable (TableNamed "employees") (Just employees))
+     Just (LeftJoin (FromTable (TableNamed "_roles") (Just roles))
+                    (FromTable (TableNamed "_employees") (Just employees))
                     (Just cond)) <- pure selectFrom
 
      let andE = ExpressionBinOp "AND"
@@ -203,7 +203,7 @@ aggregates =
            do e <- all_ (_employees employeeDbSettings)
               pure e
 
-         Just (FromTable (TableNamed "employees") (Just t0)) <- pure selectFrom
+         Just (FromTable (TableNamed "_employees") (Just t0)) <- pure selectFrom
          selectProjection @?= ProjExprs [ ( ExpressionFieldName (QualifiedField t0 "age"), Just "res0" )
                                         , ( ExpressionAgg "MAX" Nothing [ ExpressionCharLength (ExpressionFieldName (QualifiedField t0 "first_name")) ], Just "res1") ]
          selectWhere @?= Nothing
@@ -221,7 +221,7 @@ aggregates =
               guard_ (maxNameLength >. 42)
               pure (age, maxNameLength)
 
-         Just (FromTable (TableNamed "employees") (Just t0)) <- pure selectFrom
+         Just (FromTable (TableNamed "_employees") (Just t0)) <- pure selectFrom
          selectProjection @?= ProjExprs [ ( ExpressionFieldName (QualifiedField t0 "age"), Just "res0" )
                                         , ( ExpressionAgg "MAX" Nothing [ ExpressionCharLength (ExpressionFieldName (QualifiedField t0 "first_name")) ], Just "res1") ]
          selectWhere @?= Nothing
@@ -241,7 +241,7 @@ aggregates =
               pure (age, maxFirstNameLength, _roleName role)
 
          Just (InnerJoin (FromTable (TableFromSubSelect subselect) (Just t0))
-                         (FromTable (TableNamed "roles") (Just t1))
+                         (FromTable (TableNamed "_roles") (Just t1))
                          Nothing) <- pure selectFrom
          selectProjection @?= ProjExprs [ (ExpressionFieldName (QualifiedField t0 "res0"), Just "res0")
                                         , (ExpressionFieldName (QualifiedField t0 "res1"), Just "res1")
@@ -253,7 +253,7 @@ aggregates =
          Select { selectTable = SelectTable { .. }
                 , selectLimit = Nothing, selectOffset = Nothing
                 , selectOrdering = [] } <- pure subselect
-         Just (FromTable (TableNamed "employees") (Just t0)) <- pure selectFrom
+         Just (FromTable (TableNamed "_employees") (Just t0)) <- pure selectFrom
          selectProjection @?= ProjExprs [ (ExpressionFieldName (QualifiedField t0 "age"), Just "res0")
                                         , (ExpressionAgg "MAX" Nothing [ExpressionCharLength (ExpressionFieldName (QualifiedField t0 "first_name"))], Just "res1") ]
          selectWhere @?= Nothing
@@ -271,7 +271,7 @@ aggregates =
                                            all_ (_employees employeeDbSettings)
               pure (age, maxFirstNameLength, _roleName role)
 
-         Just (InnerJoin (FromTable (TableNamed "roles") (Just t0))
+         Just (InnerJoin (FromTable (TableNamed "_roles") (Just t0))
                          (FromTable (TableFromSubSelect subselect) (Just t1))
                          Nothing) <- pure selectFrom
          selectProjection @?= ProjExprs [ (ExpressionFieldName (QualifiedField t1 "res0"), Just "res0")
@@ -284,7 +284,7 @@ aggregates =
          Select { selectTable = SelectTable { .. }
                 , selectLimit = Nothing, selectOffset = Nothing
                 , selectOrdering = [] } <- pure subselect
-         Just (FromTable (TableNamed "employees") (Just t0)) <- pure selectFrom
+         Just (FromTable (TableNamed "_employees") (Just t0)) <- pure selectFrom
          selectProjection @?= ProjExprs [ (ExpressionFieldName (QualifiedField t0 "age"), Just "res0")
                                         , (ExpressionAgg "MAX" Nothing [ExpressionCharLength (ExpressionFieldName (QualifiedField t0 "first_name"))], Just "res1") ]
          selectWhere @?= Nothing
@@ -311,7 +311,7 @@ aggregates =
          selectOffset subselect @?= Nothing
          selectOrdering subselect @?= []
 
-         SelectTable {selectFrom = Just (FromTable (TableNamed "employees") (Just t0')), .. } <-
+         SelectTable {selectFrom = Just (FromTable (TableNamed "_employees") (Just t0')), .. } <-
              pure $ selectTable subselect
 
          selectWhere @?= Nothing
@@ -354,7 +354,7 @@ aggregates =
          selectOffset subselect @?= Nothing
          selectOrdering subselect @?= []
 
-         SelectTable {selectFrom = Just (FromTable (TableNamed "employees") (Just t0')), .. } <-
+         SelectTable {selectFrom = Just (FromTable (TableNamed "_employees") (Just t0')), .. } <-
              pure $ selectTable subselect
 
          selectWhere @?= Nothing
@@ -384,7 +384,7 @@ aggregates =
               pure (firstNameLength, role, lastName)
 
          Just (InnerJoin (FromTable (TableFromSubSelect subselect) (Just t0))
-                         (FromTable (TableNamed "roles") (Just t1))
+                         (FromTable (TableNamed "_roles") (Just t1))
                          (Just joinCond) ) <-
            pure selectFrom
 
@@ -414,7 +414,7 @@ aggregates =
          Select { selectTable = SelectTable { .. }, selectLimit = Just 10
                 , selectOffset = Nothing, selectOrdering = [] } <-
            pure employeesSelect
-         Just (FromTable (TableNamed "employees") (Just t0'')) <- pure selectFrom
+         Just (FromTable (TableNamed "_employees") (Just t0'')) <- pure selectFrom
 
          selectWhere @?= Nothing
          selectHaving @?= Nothing
@@ -442,7 +442,7 @@ aggregates =
               guard_ (_roleName role ==. lastName)
               pure (firstNameLength, role, lastName)
 
-         Just (InnerJoin (FromTable (TableNamed "roles") (Just t0))
+         Just (InnerJoin (FromTable (TableNamed "_roles") (Just t0))
                          (FromTable (TableFromSubSelect subselect) (Just t1))
                          Nothing) <-
            pure selectFrom
@@ -472,7 +472,7 @@ aggregates =
          Select { selectTable = SelectTable { .. }, selectLimit = Just 10
                 , selectOffset = Nothing, selectOrdering = [] } <-
            pure employeesSelect
-         Just (FromTable (TableNamed "employees") (Just t0'')) <- pure selectFrom
+         Just (FromTable (TableNamed "_employees") (Just t0'')) <- pure selectFrom
 
          selectWhere @?= Nothing
          selectHaving @?= Nothing
@@ -512,7 +512,7 @@ orderBy =
                                               , ( ExpressionFieldName (QualifiedField "t0" "for_employee__created"), Just "res2" )
                                               , ( ExpressionFieldName (QualifiedField "t0" "name"), Just "res3" )
                                               , ( ExpressionFieldName (QualifiedField "t0" "started"), Just "res4" ) ]
-                                , selectFrom = Just (FromTable (TableNamed "roles") (Just "t0"))
+                                , selectFrom = Just (FromTable (TableNamed "_roles") (Just "t0"))
                                 , selectWhere = Nothing
                                 , selectGrouping = Nothing
                                 , selectHaving = Nothing }
@@ -534,7 +534,7 @@ orderBy =
                                               , ( ExpressionFieldName (QualifiedField "t0" "for_employee__created"), Just "res2" )
                                               , ( ExpressionFieldName (QualifiedField "t0" "name"), Just "res3" )
                                               , ( ExpressionFieldName (QualifiedField "t0" "started"), Just "res4" ) ]
-                           , selectFrom = Just (FromTable (TableNamed "roles") (Just "t0"))
+                           , selectFrom = Just (FromTable (TableNamed "_roles") (Just "t0"))
                            , selectWhere = Nothing
                            , selectGrouping = Nothing
                            , selectHaving = Nothing }
@@ -558,7 +558,7 @@ orderBy =
                                               , ( ExpressionFieldName (QualifiedField "t0" "for_employee__created"), Just "res2" )
                                               , ( ExpressionFieldName (QualifiedField "t0" "name"), Just "res3" )
                                               , ( ExpressionFieldName (QualifiedField "t0" "started"), Just "res4" ) ]
-                           , selectFrom = Just (FromTable (TableNamed "roles") (Just "t0"))
+                           , selectFrom = Just (FromTable (TableNamed "_roles") (Just "t0"))
                            , selectWhere = Nothing
                            , selectGrouping = Nothing
                            , selectHaving = Nothing }
@@ -602,7 +602,7 @@ orderBy =
                                                            , ( ExpressionFieldName (QualifiedField "t0" "hire_date"), Just "res5" )
                                                            , ( ExpressionFieldName (QualifiedField "t0" "leave_date"), Just "res6" )
                                                            , ( ExpressionFieldName (QualifiedField "t0" "created"), Just "res7" ) ]
-                                             , selectFrom = Just (FromTable (TableNamed "employees") (Just "t0"))
+                                             , selectFrom = Just (FromTable (TableNamed "_employees") (Just "t0"))
                                              , selectWhere = Nothing
                                              , selectGrouping = Nothing
                                              , selectHaving = Nothing }
@@ -612,7 +612,7 @@ orderBy =
                                                                                                        (ExpressionFieldName (QualifiedField "t0" "res1"))))
                                                  (ExpressionCompOp "==" Nothing (ExpressionFieldName (QualifiedField "t1" "for_employee__created"))
                                                                                 (ExpressionFieldName (QualifiedField "t0" "res7")))
-         selectFrom select @?= Just (InnerJoin (FromTable (TableFromSubSelect subselectExp) (Just "t0")) (FromTable (TableNamed "roles") (Just "t1"))
+         selectFrom select @?= Just (InnerJoin (FromTable (TableFromSubSelect subselectExp) (Just "t0")) (FromTable (TableNamed "_roles") (Just "t1"))
                                                (Just joinCondExp))
          selectWhere select @?= Nothing
          selectGrouping select @?= Nothing
@@ -657,11 +657,11 @@ orderBy =
                                                            , ( ExpressionFieldName (QualifiedField "t0" "hire_date"), Just "res5" )
                                                            , ( ExpressionFieldName (QualifiedField "t0" "leave_date"), Just "res6" )
                                                            , ( ExpressionFieldName (QualifiedField "t0" "created"), Just "res7" ) ]
-                                             , selectFrom = Just (FromTable (TableNamed "employees") (Just "t0"))
+                                             , selectFrom = Just (FromTable (TableNamed "_employees") (Just "t0"))
                                              , selectWhere = Nothing
                                              , selectGrouping = Nothing
                                              , selectHaving = Nothing }
-         selectFrom s @?= Just (InnerJoin (FromTable (TableNamed "roles") (Just "t0"))
+         selectFrom s @?= Just (InnerJoin (FromTable (TableNamed "_roles") (Just "t0"))
                                           (FromTable (TableFromSubSelect subselect) (Just "t1"))
                                           Nothing)
 
@@ -682,7 +682,7 @@ joinHaving =
 
      Just (InnerJoin
             (FromTable (TableFromSubSelect subselect) (Just t0))
-            (FromTable (TableNamed "roles") (Just t1))
+            (FromTable (TableNamed "_roles") (Just t1))
             Nothing) <- pure selectFrom
      selectProjection @?= ProjExprs [ (ExpressionFieldName (QualifiedField t0 "res0"), Just "res0")
                                     , (ExpressionFieldName (QualifiedField t0 "res1"), Just "res1")
@@ -694,7 +694,7 @@ joinHaving =
      Select { selectTable = SelectTable { .. }
             , selectLimit = Nothing, selectOffset = Nothing
             , selectOrdering = [] } <- pure subselect
-     Just (FromTable (TableNamed "employees") (Just t0)) <- pure selectFrom
+     Just (FromTable (TableNamed "_employees") (Just t0)) <- pure selectFrom
      selectProjection @?= ProjExprs [ (ExpressionFieldName (QualifiedField t0 "age"), Just "res0")
                                     , (ExpressionAgg "MAX" Nothing [ExpressionCharLength (ExpressionFieldName (QualifiedField t0 "first_name"))], Just "res1") ]
      selectWhere @?= Nothing
@@ -711,7 +711,7 @@ maybeFieldTypes =
        guard_ (isNothing_ (_employeeLeaveDate e))
        pure e
 
-     Just (FromTable (TableNamed "employees") (Just employees)) <- pure selectFrom
+     Just (FromTable (TableNamed "_employees") (Just employees)) <- pure selectFrom
      selectWhere @?= ExpressionIsNull (ExpressionFieldName (QualifiedField employees "leave_date"))
 
 -- * Ensure isJustE and isNothingE work correctly for table and composite types
@@ -732,7 +732,7 @@ tableEquality =
           guard_ (d ==. d)
           pure d
 
-        Just (FromTable (TableNamed "departments") (Just depts)) <- pure selectFrom
+        Just (FromTable (TableNamed "_departments") (Just depts)) <- pure selectFrom
 
         let andE = ExpressionBinOp "AND"
             eqE = ExpressionCompOp "==" Nothing
@@ -756,7 +756,7 @@ tableEquality =
           guard_ (d ==. val_ exp)
           pure d
 
-        Just (FromTable (TableNamed "departments") (Just depts)) <- pure selectFrom
+        Just (FromTable (TableNamed "_departments") (Just depts)) <- pure selectFrom
 
         let andE = ExpressionBinOp "AND"
             eqE = ExpressionCompOp "==" Nothing
@@ -806,11 +806,11 @@ selectCombinators =
          SqlSelect Select { selectTable = UnionTables False a b } <- pure (select (union_ hireDates leaveDates))
          a @?= SelectTable (ProjExprs [ (ExpressionValue (Value ("hire" :: Text)), Just "res0")
                                       , (ExpressionFieldName (QualifiedField "t0" "hire_date"), Just "res1") ])
-                           (Just (FromTable (TableNamed "employees") (Just "t0")))
+                           (Just (FromTable (TableNamed "_employees") (Just "t0")))
                            Nothing Nothing Nothing
          b @?= SelectTable (ProjExprs [ (ExpressionValue (Value ("leave" :: Text)), Just "res0")
                                       , (ExpressionFieldName (QualifiedField "t0" "leave_date"), Just "res1") ])
-                           (Just (FromTable (TableNamed "employees") (Just "t0")))
+                           (Just (FromTable (TableNamed "_employees") (Just "t0")))
                            (Just (ExpressionIsNotNull (ExpressionFieldName (QualifiedField "t0" "leave_date"))))
                            Nothing Nothing
          pure ()
@@ -845,11 +845,11 @@ selectCombinators =
          hireDatesQuery @?= SelectTable (ProjExprs [ ( ExpressionValue (Value ("hire" :: Text)), Just "res0" )
                                                    , ( ExpressionFieldName (QualifiedField "t0" "age"), Just "res1" )
                                                    , ( ExpressionFieldName (QualifiedField "t0" "hire_date"), Just "res2" ) ])
-                                        (Just (FromTable (TableNamed "employees") (Just "t0"))) Nothing Nothing Nothing
+                                        (Just (FromTable (TableNamed "_employees") (Just "t0"))) Nothing Nothing Nothing
          leaveDatesQuery @?= SelectTable (ProjExprs [ ( ExpressionValue (Value ("leave" :: Text)), Just "res0" )
                                                     , ( ExpressionFieldName (QualifiedField "t0" "age"), Just "res1")
                                                     , ( ExpressionFieldName (QualifiedField "t0" "leave_date"), Just "res2") ])
-                                         (Just (FromTable (TableNamed "employees") (Just "t0")))
+                                         (Just (FromTable (TableNamed "_employees") (Just "t0")))
                                          (Just (ExpressionIsNotNull (ExpressionFieldName (QualifiedField "t0" "leave_date"))))
                                          Nothing Nothing
 
@@ -907,12 +907,12 @@ selectCombinators =
          a @?= SelectTable (ProjExprs [ (ExpressionValue (Value ("hire" :: Text)), Just "res0")
                                       , (ExpressionFieldName (QualifiedField "t0" "age"), Just "res1")
                                       , (ExpressionFieldName (QualifiedField "t0" "hire_date"), Just "res2") ])
-                           (Just (FromTable (TableNamed "employees") (Just "t0")))
+                           (Just (FromTable (TableNamed "_employees") (Just "t0")))
                            Nothing Nothing Nothing
          b @?= SelectTable (ProjExprs [ (ExpressionValue (Value ("leave" :: Text)), Just "res0")
                                       , (ExpressionFieldName (QualifiedField "t0" "age"), Just "res1")
                                       , (ExpressionFieldName (QualifiedField "t0" "leave_date"), Just "res2") ])
-                           (Just (FromTable (TableNamed "employees") (Just "t0")))
+                           (Just (FromTable (TableNamed "_employees") (Just "t0")))
                            (Just (ExpressionIsNotNull (ExpressionFieldName (QualifiedField "t0" "leave_date"))))
                            Nothing Nothing
 
@@ -972,7 +972,7 @@ limitOffset =
                                           , (ExpressionFieldName (QualifiedField "t0" "hire_date"), Just "res5")
                                           , (ExpressionFieldName (QualifiedField "t0" "leave_date"), Just "res6")
                                           , (ExpressionFieldName (QualifiedField "t0" "created"), Just "res7") ]
-         selectFrom a @?= Just (FromTable (TableNamed "employees") (Just "t0"))
+         selectFrom a @?= Just (FromTable (TableNamed "_employees") (Just "t0"))
          selectWhere a @?= Just (ExpressionCompOp "<" Nothing (ExpressionFieldName (QualifiedField "t0" "age")) (ExpressionValue (Value (40 :: Int))))
          selectGrouping a @?= Nothing
          selectHaving a @?= Nothing
@@ -985,7 +985,7 @@ limitOffset =
                                           , (ExpressionFieldName (QualifiedField "t0" "hire_date"), Just "res5")
                                           , (ExpressionFieldName (QualifiedField "t0" "leave_date"), Just "res6")
                                           , (ExpressionFieldName (QualifiedField "t0" "created"), Just "res7") ]
-         selectFrom b @?= Just (FromTable (TableNamed "employees") (Just "t0"))
+         selectFrom b @?= Just (FromTable (TableNamed "_employees") (Just "t0"))
          selectWhere b @?= Just (ExpressionCompOp ">" Nothing (ExpressionFieldName (QualifiedField "t0" "age")) (ExpressionValue (Value (50 :: Int))))
          selectGrouping b @?= Nothing
          selectHaving b @?= Nothing
@@ -1004,6 +1004,6 @@ updateCurrent =
                      (\employee -> [ _employeeAge employee <-. current_ (_employeeAge employee) + 1])
                      (\employee -> _employeeFirstName employee ==. "Joe")
 
-     updateTable @?= "employees"
+     updateTable @?= "_employees"
      updateFields @?= [ (UnqualifiedField "age", ExpressionBinOp "+" (ExpressionFieldName (UnqualifiedField "age")) (ExpressionValue (Value (1 :: Int)))) ]
      updateWhere @?= Just (ExpressionCompOp "==" Nothing (ExpressionFieldName (UnqualifiedField "first_name")) (ExpressionValue (Value ("Joe" :: String))))

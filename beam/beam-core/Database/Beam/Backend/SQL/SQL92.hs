@@ -111,7 +111,7 @@ class IsSql92InsertValuesSyntax (Sql92InsertValuesSyntax insert) =>
 
   type Sql92InsertValuesSyntax insert :: *
   type Sql92InsertValuesInfo insert :: *
-  insertStmt :: Maybe (Sql92InsertValuesInfo insert)
+  insertStmt :: Sql92InsertValuesInfo insert
              -> Text
              -> TableSchema
              -> [ Text ]
@@ -250,7 +250,7 @@ class IsSql92OrderingSyntax ord where
 class IsSql92TableSourceSyntax tblSource where
   type Sql92TableSourceSelectSyntax tblSource :: *
   type Sql92TableSourceInfo tblSource :: *
-  tableNamed :: Maybe (Sql92TableSourceInfo tblSource) -> Text -> TableSchema -> tblSource
+  tableNamed :: Sql92TableSourceInfo tblSource -> Text -> TableSchema -> tblSource
   tableFromSubSelect :: Sql92TableSourceSelectSyntax tblSource -> tblSource
 
 class IsSql92GroupingSyntax grouping where
