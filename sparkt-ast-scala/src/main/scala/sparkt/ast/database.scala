@@ -5,6 +5,7 @@ case class TInt() extends ATType
 case class TString() extends ATType
 case class TText() extends ATType
 case class TDouble() extends ATType
+case class TBool() extends ATType
 
 abstract class ADStorage
 case class DS3() extends ADStorage

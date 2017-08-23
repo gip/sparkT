@@ -8,17 +8,17 @@ import Data.List as L
 import Data.Foldable as F
 import Data.Text (Text)
 
-import Database.SparkT.AST.Internal
 import Database.SparkT.AST.Database
 import Database.SparkT.AST.SQL
 import Database.SparkT.AST.Error
+import Database.SparkT.Builder.Scala
 
-data DAGCtor = SDAG | SVertex | SArc | SStep
+data DAGCtor = SETL | SVertex | SArc | SStep
   deriving (Show)
 
 -- A step
 data Step a = Step { stepName :: String,
-                                         stepProcess :: Insert a }
+                     step :: Insert a }
   deriving (Functor, Foldable)
 instance Show (Step a) where
   show (Step name _) = "Step \"" ++ name ++ "\" <function>"
@@ -34,6 +34,7 @@ newtype Vertex a = Vertex a
   deriving (Show, Eq, Ord, Functor, Foldable)
 instance ToScalaExpr a => ToScalaExpr (Vertex a) where
   toSE (Vertex a) = classCtor SVertex [toSE a]
+unVertex (Vertex a) = a
 
 data Arc a = Arc { predecessors :: Set (Vertex a),
                    successor :: Vertex a,
@@ -43,16 +44,16 @@ instance (ToScalaExpr a, Show a, Ord a) => ToScalaExpr (Arc a) where
   toSE (Arc preds succ pro) = classCtor SArc [toSE preds, toSE succ, toSE pro]
 
 -- A Directed Acyclic Graph representing an ETL
-data DAG a = DAG { identifier :: String,
+data ETL a = DAG { identifier :: String,
                    vertices :: Set (Vertex a),
                    arcs :: Set (Arc a) }
   deriving (Show, Functor, Foldable)
-instance (ToScalaExpr a, Show a, Ord a) => ToScalaExpr (DAG a) where
-  toSE (DAG n v a) = classCtor SDAG [toSE n, toSE v, toSE a]
+instance (ToScalaExpr a, Show a, Ord a) => ToScalaExpr (ETL a) where
+  toSE (DAG n v a) = classCtor SETL [toSE n, toSE v, toSE a]
 
 -- From a list of ETLs create a DAG representation
-computeDAG :: (Ord a) => String -> [Step a] -> Either (Error String String) (DAG a)
-computeDAG name steps = do
+buildETL :: (Ord a) => String -> [Step a] -> Either (Error String String) (ETL a)
+buildETL name steps = do
   (vertices, arcs) <- F.foldrM f (empty, empty) steps --
   catchCycle $ DAG name vertices arcs
   where
@@ -63,7 +64,7 @@ computeDAG name steps = do
                         then throwError $ ImmutabilityViolationError name "only one arc going to a vertex is allowed"
                         else
                           return (S.insert succ v,
-                          S.insert (Arc (S.fromList preds) succ step) a)
+                                  S.insert (Arc (S.fromList preds) succ step) a)
       where
         succ' = case process of Insert info _ _ _ _ -> Right $ Vertex info
         preds = case process of

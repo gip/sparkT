@@ -28,7 +28,7 @@ object Server extends App {
  ___) | |_) | (_| | |  |   <  | |
 |____/| .__/ \__,_|_|  |_|\_\ |_|
       |_|"""
-  println(banner)
+  println(Console.GREEN + banner + Console.WHITE)
   println(s"SparkT server is now online at http://$interface:$port\nPress RETURN to stop...")
   StdIn.readLine()
 

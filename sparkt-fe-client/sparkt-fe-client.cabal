@@ -14,7 +14,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Database.SparkT.Client
+  exposed-modules:     Database.SparkT.Client.Websocket,
+                       Database.SparkT.Client.Inspect
   build-depends:       HUnit,
                        base >=4.9 && <4.10,
                        containers >=0.5 && <0.6,
