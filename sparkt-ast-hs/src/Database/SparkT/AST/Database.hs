@@ -1,20 +1,21 @@
 {-# LANGUAGE DeriveGeneric, GADTs, FlexibleContexts, OverloadedStrings,
              UndecidableInstances, TypeSynonymInstances, FlexibleInstances,
-             ScopedTypeVariables, DeriveFunctor #-}
+             ScopedTypeVariables, DeriveFunctor, MultiParamTypeClasses,
+             AllowAmbiguousTypes, FunctionalDependencies #-}
 module Database.SparkT.AST.Database where
 
 import Data.Typeable
 import GHC.Generics
 
-import Database.SparkT.AST.Internal
-
-type TableSchema t = [(String, t, Bool)]
-type DatabaseSchema t = (String, [(String, TableSchema t)])
+import Database.SparkT.Builder.Scala
+import Database.SparkT.AST.Context
 
 data DDatabaseMappingCtor =
   DDatabaseMapping | DS3 | DPostgresSQL | DRedshift | DParquet |
   DCSV | DAutodetect | DProprietary | DCache
   deriving (Show)
+
+type DatabaseSchema t = (String, [(String, TableSchema t)])
 
 data Storage = S3 | PostgresSQL | Redshift | Cache
   deriving (Eq, Show, Ord, Generic)

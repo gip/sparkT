@@ -5,16 +5,17 @@ import sparkt.ast.sql._
 import sparkt.ast.etl._
 
 abstract class APPhrase
-case class PSQLStatement(id: Long, execute: Boolean, sql: ASCommand) extends APPhrase
-case class PETLStatement(id: Long, execute: Boolean, dag: SDAG) extends APPhrase
+case class PSQLSelectStatement(id: Long, execute: Boolean, sql: ASSelect) extends APPhrase
+case class PETLStatement(id: Long, execute: Boolean, dag: SETL) extends APPhrase
 case class PPing(id: Long, msg: String) extends APPhrase
 
 abstract class APResponse
 case class PPong(id: Long, msg: String) extends APResponse
-case class PSQLResult(id: Long, response: Either[String, Unit]) extends APResponse
+case class PSQLResult(id: Long, response: Either[String, Seq[Seq[String]]]) extends APResponse
 case class PUnparseable(msg: Option[String]) extends APResponse
 case class PUnsupported(id: Long, msg: String) extends APResponse
-//case class PDatabase
+case class PETLResult(id: Long, response: Either[String, String]) extends APResponse
+
 
 object Protocol {
   import scala.reflect.runtime.universe._
@@ -51,7 +52,9 @@ object Protocol {
     resp match {
       case PPong(id, msg) => "Pong " + id.toString() + " \"" + msg + "\""
       case PSQLResult(id, Left(msg)) => "SQLResult " + id + " (Left \"" + msg + "\")"
-      case PSQLResult(id, Right(())) => "SQLResult " + id + " (Right ())"
+      case PSQLResult(id, Right(msg)) => "SQLResult " + id + " (Right \"" + msg + "\")"
+      case PETLResult(id, Left(msg)) => "ETLResult " + id + " (Left \"" + msg + "\")"
+      case PETLResult(id, Right(msg)) => "ETLResult " + id + " (Right \"" + msg + "\")"
       case PUnparseable(None) => "Unparseable Nothing"
       case PUnparseable(Some(msg)) => "Unparseable (Just \"" + msg + "\")"
       case PUnsupported(id, msg) => "Unsupported " + id + " \"" + msg + "\""

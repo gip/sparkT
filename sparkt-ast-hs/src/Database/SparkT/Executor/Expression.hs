@@ -44,52 +44,54 @@ getAsBool (Value v) =
 unify frame lhs rhs = do
   rLhs <- evalE frame lhs
   rRhs <- evalE frame rhs
-  if rType rLhs == rType rRhs
-    then return (rType rLhs, rLhs, rRhs)
+  if fst (rType rLhs) == fst (rType rRhs)
+    then return (fst (rType rLhs), rLhs, rRhs)
     else throwError $ ExpressionTypeMismatchError (show $ rType rLhs) (show $ rType rRhs)
 
-zipCol f (Col _ s0 t0 n0 _ r0)
-         (Col _ s1 t1 n1 _ r1) = return $ Col "?" "" t0 (n0 || n1) Nothing (liftM2 (zipWith f) r0 r1)
+zipCol e f (Col _ s0 (t0, _) n0 _ r0)
+           (Col _ s1 (t1, _) n1 _ r1) = return $ Col "?" "" (t0, e) (n0 || n1) Nothing (liftM2 (zipWith f) r0 r1)
 
-evalE frame (ExpressionBinOp op eLhs eRhs) = do
+evalE frame e@(ExpressionBinOp op eLhs eRhs) = do
   (t, lhs, rhs) <- unify frame eLhs eRhs
   case (t, op) of
-    (EInt, "+") -> zipCol (\v w -> Value $ (forceAsInt v) + (forceAsInt w)) lhs rhs
-    (EInt, "-") -> zipCol (\v w -> Value $ (forceAsInt v) - (forceAsInt w)) lhs rhs
-    (EInt, "*") -> zipCol (\v w -> Value $ (forceAsInt v) * (forceAsInt w)) lhs rhs
-    (EDouble, "+") -> zipCol (\v w -> Value $ (forceAsDouble v) + (forceAsDouble w)) lhs rhs
-    (EDouble, "-") -> zipCol (\v w -> Value $ (forceAsDouble v) - (forceAsDouble w)) lhs rhs
-    (EDouble, "*") -> zipCol (\v w -> Value $ (forceAsDouble v) * (forceAsDouble w)) lhs rhs
-    (EDouble, "/") -> zipCol (\v w -> Value $ (forceAsDouble v) / (forceAsDouble w)) lhs rhs
-    (EBool, "AND") -> zipCol (\v w -> Value $ (forceAsBool v) && (forceAsBool w)) lhs rhs
-    (EBool, "OR") -> zipCol (\v w -> Value $ (forceAsBool v) || (forceAsBool w)) lhs rhs
+    (EInt, "+") -> zipCol e (\v w -> Value $ (forceAsInt v) + (forceAsInt w)) lhs rhs
+    (EInt, "-") -> zipCol e (\v w -> Value $ (forceAsInt v) - (forceAsInt w)) lhs rhs
+    (EInt, "*") -> zipCol e (\v w -> Value $ (forceAsInt v) * (forceAsInt w)) lhs rhs
+    (EDouble, "+") -> zipCol e (\v w -> Value $ (forceAsDouble v) + (forceAsDouble w)) lhs rhs
+    (EDouble, "-") -> zipCol e (\v w -> Value $ (forceAsDouble v) - (forceAsDouble w)) lhs rhs
+    (EDouble, "*") -> zipCol e (\v w -> Value $ (forceAsDouble v) * (forceAsDouble w)) lhs rhs
+    (EDouble, "/") -> zipCol e (\v w -> Value $ (forceAsDouble v) / (forceAsDouble w)) lhs rhs
+    (EBool, "AND") -> zipCol e (\v w -> Value $ (forceAsBool v) && (forceAsBool w)) lhs rhs
+    (EBool, "OR") -> zipCol e (\v w -> Value $ (forceAsBool v) || (forceAsBool w)) lhs rhs
 
-evalE frame (ExpressionCompOp op _ eLhs eRhs) = do
+evalE frame e@(ExpressionCompOp op _ eLhs eRhs) = do
   (t, lhs, rhs) <- unify frame eLhs eRhs
   case op of
-    "=" -> doComp (==) lhs rhs
-    "<=" -> doComp (<=) lhs rhs
-    "<" -> doComp (<) lhs rhs
-    ">=" -> doComp (>=) lhs rhs
-    ">" -> doComp (>) lhs rhs
-    "<>" -> doComp (/=) lhs rhs
+    "=" -> doComp e (==) lhs rhs
+    "<=" -> doComp e (<=) lhs rhs
+    "<" -> doComp e (<) lhs rhs
+    ">=" -> doComp e (>=) lhs rhs
+    ">" -> doComp e (>) lhs rhs
+    "<>" -> doComp e (/=) lhs rhs
   where
-    doComp f lhs rhs =
-      return $ Col "?" "" EBool
+    doComp e f lhs rhs =
+      return $ Col "?" "" (EBool, e)
                           (rNullable lhs || rNullable rhs)
                           Nothing
                           (liftM2 (zipWith (\v w -> Value (f v w))) (rRepr lhs) (rRepr rhs))
 
-evalE _ (ExpressionValue v) = do
+evalE _ e@(ExpressionValue v) = do
   i <- (getAsInt v >> return True) `catchError` (\_ -> return False)
-  if i then return $ Col "" "" EInt False (Just v) (return $ L.repeat v)
+  if i then return $ Col "" "" (EInt, e) False (Just v) (return $ L.repeat v)
        else throwError $ ExecutorUnknownTypeError "" ""
 
-evalE frame (ExpressionFieldName (QualifiedField scope name)) =
-  getColumn frame (toS name) (Just $ toS scope)
-evalE frame (ExpressionFieldName (UnqualifiedField name)) =
-  getColumn frame (toS name) Nothing
-
-
+evalE frame e@(ExpressionFieldName (QualifiedField scope name)) =
+  col >>= \c -> return c { rType = (rType c, e) }
+  where
+    col = getColumn frame (toS name) (Just $ toS scope)
+evalE frame e@(ExpressionFieldName (UnqualifiedField name)) =
+  col >>= \c -> return c { rType = (rType c, e) }
+  where
+    col = getColumn frame (toS name) Nothing
 
 evalE _ expr = throwError $ ExecutorNotImplementedError "evalE" (show expr)

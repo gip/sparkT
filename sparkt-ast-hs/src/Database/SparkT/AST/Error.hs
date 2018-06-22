@@ -16,5 +16,5 @@ data Error a b =
 
   | ExecutorNotImplementedError a b
   | ExecutorUnknownTypeError a b
-
+  | ExecutorDuplicateColumnError a b
   deriving (Show, Eq)

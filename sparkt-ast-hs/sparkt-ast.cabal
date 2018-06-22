@@ -18,12 +18,15 @@ library
                        Database.SparkT.AST.Database,
                        Database.SparkT.AST.Protocol,
                        Database.SparkT.AST.ETL,
-                       Database.SparkT.AST.Error
-                       Database.SparkT.AST.Internal,
+                       Database.SparkT.AST.Error,
+                       Database.SparkT.AST.Context,
                        Database.SparkT.Parser.SQL,
                        Database.SparkT.Executor.Context,
                        Database.SparkT.Executor.SQL,
-                       Database.SparkT.Executor.Expression
+                       Database.SparkT.Executor.Expression,
+                       Database.SparkT.Executor.Aggregation,
+                       Database.SparkT.Builder.Scala,
+                       Database.SparkT.Builder.SQL
   build-depends:       HUnit,
                        base >=4.9 && <4.10,
                        containers >=0.5 && <0.6,

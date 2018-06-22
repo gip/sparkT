@@ -18,7 +18,7 @@ case class SSelect(table: ASSelectType,
                    offset: Option[Int]) extends ASSelect
 
 abstract class ASInsert
-case class SInsert(info: Option[DDatabaseMapping],
+case class SInsert(info: DDatabaseMapping,
                    name: String,
                    fields: Seq[String],
                    values: ASInsertValues) extends ASInsert
@@ -42,7 +42,7 @@ case class SLeftJoin(lhs: ASFrom, rhs: ASFrom, on: Option[ASExpr]) extends ASFro
 case class SRightJoin(lhs: ASFrom, rhs: ASFrom, on: Option[ASExpr]) extends ASFrom
 
 abstract class ASTableSource
-case class STableNamed(info: Option[DDatabaseMapping], name: String) extends ASTableSource
+case class STableNamed(info: DDatabaseMapping, name: String) extends ASTableSource
 case class STableSubSelect(subSelect: ASSelect) extends ASTableSource
 
 abstract class ASOrdering

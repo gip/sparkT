@@ -24,7 +24,8 @@ import Test.Tasty.HUnit
 
 tests :: TestTree
 tests = testGroup "SQL Select executor"
-                  [ simple ]
+                  [ simple,
+                    aggreg ]
 
 p :: String -> Either ParseError (Select ())
 p = parse (parseSelect <* char ';') ""
@@ -120,7 +121,9 @@ simple = testGroup "Simple queries"
 
   , testCase "This should not typecheck" $
       run (executeSelect (contextualize simpleCtx $ fromRight (p "SELECT name+id FROM table1;")))
-        @?= Left (ExpressionTypeMismatchError "EString" "EInt")
+        @?= Left (ExpressionTypeMismatchError
+                    "(EString,ExpressionFieldName (UnqualifiedField \"name\"))"
+                    "(EInt,ExpressionFieldName (UnqualifiedField \"id\"))" )
 
   , testCase "Order by asc" $
       runDF (executeSelect (contextualize easyCtx $ fromRight (p "SELECT score, id FROM table1 ORDER BY score;")))
@@ -149,4 +152,25 @@ simple = testGroup "Simple queries"
                               (return [[valueS "Do",valueS "Fa",valueS "Fa",valueS "Fa",valueS "Re",valueS "Re",valueS "Si"],
                                        [valueD 344.67,valueD 0.1,valueD 0.1,valueD 9.8,valueD 0.1,valueD 23.01,valueD 4.0],
                                        [valueI 1,valueI 4,valueI 6,valueI 5,valueI 3,valueI 2,valueI 7]]))
+  ]
+
+aggreg :: TestTree
+aggreg = testGroup "Group by and aggregation queries"
+  [
+    testCase "Group by and order by" $
+      run (executeSelect (contextualize easyCtx $ fromRight (p "SELECT name FROM table1 GROUP BY name ORDER BY name;")))
+        @?= Right [Col "name" "table1" EString True Nothing (return [valueS "Do",valueS "Fa",valueS "Re",valueS "Si"])]
+
+  , testCase "Group by on 2 fields" $
+      runDF (executeSelect (contextualize easyCtx $ fromRight (p "SELECT name, score FROM table1 GROUP BY name, score;")))
+      @?= Right (DataFrame [("name","table1",EString,True),("score","table1",EDouble,False)]
+                            (return [[valueS "Re",valueS "Fa",valueS "Si",valueS "Fa",valueS "Re",valueS "Do"],
+                                     [valueD 0.1,valueD 0.1,valueD 4.0,valueD 9.8,valueD 23.01,valueD 344.67]]))
+
+  --  , testCase "Group by on 2 fields" $
+  --      runDF (executeSelect (contextualize easyCtx $ fromRight (p "SELECT id, name, score FROM table1 GROUP BY name, score;")))
+  --      @?= Right (DataFrame [("name","table1",EString,True),("score","table1",EDouble,False)]
+  --                            (return [[valueS "Re",valueS "Fa",valueS "Si",valueS "Fa",valueS "Re",valueS "Do"],
+  --                                     [valueD 0.1,valueD 0.1,valueD 4.0,valueD 9.8,valueD 23.01,valueD 344.67]]))
+
   ]
