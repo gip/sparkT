@@ -21,6 +21,19 @@ import Data.Set (Set, fromList, notMember)
 import Database.SparkT.AST.SQL
 import Database.SparkT.Parser.Internal
 
+-- Insert
+parseInsert :: Parser (Insert ())
+parseInsert = Insert <$> pure ()
+                     <*> (keyword "INSERT" *> keyword "INTO" *> identifierTableText)
+                     <*> pure Nothing
+                     <*> option [] (identifierText `sepBy1` comma)
+                     <*> parseInsertValues
+
+
+parseInsertValues :: Parser (InsertValues ())
+parseInsertValues = try (InsertSelect <$> parseSelect)
+                    <|> (InsertValues <$> parens (parens (parseValue `sepBy1` comma) `sepBy1` comma))
+
 -- Select
 parseSelect :: Parser (Select ())
 parseSelect =  Select <$> parseSelectTable
