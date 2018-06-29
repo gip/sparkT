@@ -11,7 +11,7 @@ import Control.Monad.Except
 import Data.Typeable
 import Data.String.Conv
 import Data.Maybe (isJust, fromMaybe)
-import Data.Map as M
+import Data.Map as M hiding (take, drop)
 import Data.List as L hiding (groupBy)
 import Data.Text (Text)
 import Data.Ord as Ord

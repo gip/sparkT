@@ -70,11 +70,11 @@ instance (Show i, Show r, Show t, Show (m [[r]])) => Show (DataFrame m i r t) wh
 dataFrame :: Monad m => Frame m i r t -> m (DataFrame m i r t)
 dataFrame frame = do
   l <- mapM rRepr frame
-  return $ DataFrame types (return $ L.map (take (doit l 10)) l)
+  return $ DataFrame types (return $ L.map (L.take (doit l 10)) l)
   where
     types = L.map (\(Col i s t n _ _) -> (i, s, t, n)) frame
     doit l n =
-      let n' = minimum (L.map (length. take n) l) in
+      let n' = minimum (L.map (length. L.take n) l) in
       if n' < n
         then n'
         else doit l (n*2)
